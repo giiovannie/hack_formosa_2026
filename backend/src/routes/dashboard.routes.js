@@ -7,14 +7,14 @@ const date = (field) => query(field).optional().custom((value) => {
   const parsed = new Date(`${value}T00:00:00.000Z`);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 });
-const filters = [date('from'), date('to'), query('dataType').optional().isString().trim().notEmpty().isLength({ max: 100 }),
+export const processedRecordFilterValidators = [date('from'), date('to'), query('dataType').optional().isString().trim().notEmpty().isLength({ max: 100 }),
   query('sourceId').optional().isInt({ min: 1 }).toInt()];
 
 export const createDashboardRouter = (controllers, auth) => {
   const router = Router();
   router.use(auth);
-  router.get('/', filters, validate, controllers.getDashboard);
+  router.get('/', processedRecordFilterValidators, validate, controllers.getDashboard);
   router.get('/widgets/:widgetId', param('widgetId').isIn(['records-by-type', 'records-by-source']),
-    filters, validate, controllers.getWidget);
+    processedRecordFilterValidators, validate, controllers.getWidget);
   return router;
 };

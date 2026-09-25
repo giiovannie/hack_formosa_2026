@@ -1241,6 +1241,14 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E10 — Visualización de información
+
+`GET /api/v1/visualizaciones?type=&metric=record_count&groupBy=&from=&to=&dataType=&sourceId=` requiere sesión y agrupa únicamente registros procesados de la empresa autenticada. Reutiliza los filtros E09 (`from`/`to` inclusivos en UTC sobre fecha de persistencia, `dataType`, `sourceId` propio). La única métrica genérica definida es `record_count`; no se infieren importes ni unidades de columnas libres.
+
+`type` admite `bar`, `line`, `pie`, `table`, `card`. `groupBy` admite `dataType`, `sourceId`, `day`; por defecto `dataType` en barras, tortas y tablas, y `day` en líneas. Las líneas exigen `day`; las tarjetas no admiten agrupación. La respuesta `200` es `{ message, visualization: { type, metric, groupBy, filters, data } }`. Para barras, líneas y tortas, `data` es `{ labels: string[], values: number[] }`; para tablas, `{ columns: ["group", "value"], rows: [{ group, value }] }`; para tarjetas, `{ value: number }`. No se agregan puntos ficticios para días sin datos. Tipo o combinación inválida responde `400`; fuente ajena o inexistente, `404`.
+
+---
+
 ## BE E09 — Dashboard interactivo
 
 El dashboard requiere sesión y utiliza exclusivamente el `companyId` autenticado. El período `from`/`to` (fechas inclusivas `AAAA-MM-DD`, UTC) se aplica a la fecha de persistencia del registro procesado; no se infiere una fecha de negocio de columnas libres. Los filtros opcionales son `dataType` (texto) y `sourceId` (fuente propia, incluso si fue dada de baja lógicamente). Un período inválido responde `400`; una fuente inexistente o ajena, `404`.

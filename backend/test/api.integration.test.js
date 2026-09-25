@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E09 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E10 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -440,6 +440,28 @@ test('BE E01–E09 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('GET', '/dashboard?from=2026-10-01&to=2026-09-01', undefined, cookieA)).status, 400);
     assert.equal((await request('GET', '/dashboard?sourceId=2147483647', undefined, cookieA)).status, 404);
     assert.equal((await request('GET', '/dashboard/widgets/unknown', undefined, cookieA)).status, 400);
+  });
+  await t.test('E10 prepares real chart series, tables and metric cards with tenant filters', async () => {
+    const bar = await request('GET', '/visualizaciones?type=bar&groupBy=dataType', undefined, cookieA);
+    assert.equal(bar.status, 200, JSON.stringify(bar.body));
+    assert.deepEqual(bar.body.visualization.data, { labels: ['sales'], values: [3] });
+    const pie = await request('GET', `/visualizaciones?type=pie&groupBy=sourceId&sourceId=${importSource.id}`, undefined, cookieA);
+    assert.equal(pie.status, 200, JSON.stringify(pie.body));
+    assert.deepEqual(pie.body.visualization.data, { labels: [String(importSource.id)], values: [3] });
+    const table = await request('GET', '/visualizaciones?type=table&groupBy=dataType', undefined, cookieA);
+    assert.deepEqual(table.body.visualization.data, { columns: ['group', 'value'], rows: [{ group: 'sales', value: 3 }] });
+    const line = await request('GET', '/visualizaciones?type=line&groupBy=day', undefined, cookieA);
+    assert.equal(line.status, 200, JSON.stringify(line.body));
+    assert.equal(line.body.visualization.data.values.reduce((sum, value) => sum + value, 0), 3);
+    const card = await request('GET', '/visualizaciones?type=card&dataType=sales', undefined, cookieA);
+    assert.equal(card.body.visualization.data.value, 3);
+    assert.equal((await request('GET', '/visualizaciones?type=card&to=2000-01-01', undefined, cookieA)).body.visualization.data.value, 0);
+    assert.equal((await request('GET', '/visualizaciones?type=card', undefined, cookieB)).body.visualization.data.value, 0);
+    assert.equal((await request('GET', '/visualizaciones?type=card')).status, 401);
+    assert.equal((await request('GET', '/visualizaciones?type=unknown', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/visualizaciones?type=line&groupBy=sourceId', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/visualizaciones?type=card&groupBy=day', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/visualizaciones?type=bar&sourceId=2147483647', undefined, cookieA)).status, 404);
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);
