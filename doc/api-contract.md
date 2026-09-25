@@ -1241,6 +1241,17 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E09 — Dashboard interactivo
+
+El dashboard requiere sesión y utiliza exclusivamente el `companyId` autenticado. El período `from`/`to` (fechas inclusivas `AAAA-MM-DD`, UTC) se aplica a la fecha de persistencia del registro procesado; no se infiere una fecha de negocio de columnas libres. Los filtros opcionales son `dataType` (texto) y `sourceId` (fuente propia, incluso si fue dada de baja lógicamente). Un período inválido responde `400`; una fuente inexistente o ajena, `404`.
+
+- `GET /api/v1/dashboard?from=&to=&dataType=&sourceId=`: devuelve `{ message, dashboard: { companyId, profile, filters, availableWidgets, widgets } }`. `profile` incluye `rubro`, `areas`, `datosDisponibles` y `objetivosAnalisis`, o `null`. Si no hay registros procesados en el filtro, las listas de widgets son vacías.
+- `GET /api/v1/dashboard/widgets/:widgetId` acepta los mismos filtros. Los IDs disponibles son `records-by-type` y `records-by-source`; devuelve `{ message, filters, widget: { id, data } }`. `data` es una lista agregada de `{ dataType, count }` o `{ sourceId, count }`, respectivamente. Un ID desconocido responde `400`.
+
+Las cifras se calculan sobre `ProcessedRecord`, nunca sobre cargas crudas. No se devuelven filas completas en los widgets. Métricas de negocio que requieran un esquema específico pertenecen a tareas posteriores.
+
+---
+
 ## BE E08 — Trazabilidad
 
 Todas las rutas requieren sesión y buscan exclusivamente dentro de la empresa autenticada; un registro o importación ajenos responden `404`. Las respuestas no incluyen datos crudos ni datasets completos.

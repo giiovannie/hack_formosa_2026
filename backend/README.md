@@ -40,6 +40,8 @@ Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa ta
 Se agregó `multer` porque la API recibe archivos multipart. Limita CSV a 1 MiB en memoria; el Backend no transforma ni clasifica sus filas. Consultar `doc/api-contract.md` para los campos y respuestas.
 # ETL (BE E05)
 
+BE E09 expone un dashboard autenticado en `/api/v1/dashboard`, con widgets individuales agregados por tipo y fuente. Los filtros de período usan la fecha de persistencia UTC de `ProcessedRecord`.
+
 BE E08 expone trazabilidad de registros e historial paginado de importaciones en `/api/v1/trazabilidad`. Reutiliza fuente, importación, ejecución, calidad y registro persistido; no agrega tablas.
 
 BE E07 agrega la tabla `ProcessedRecords` para filas validadas, con referencias a empresa, fuente, importación y ejecución. Ejecutá `npm run db:init` en una instalación existente para crearla; no modifica tablas previas. `POST /api/v1/datos-procesados/importaciones/:importacionId` realiza la carga idempotente para la última ejecución validada.

@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E08 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E09 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -418,6 +418,28 @@ test('BE E01–E08 HTTP contracts and isolation on real MySQL', async (t) => {
     const before = await models.ProcessingRunModel.count({ where: { dataImportId: traceImportId } });
     await request('GET', `/trazabilidad/importaciones/${traceImportId}`, undefined, cookieA);
     assert.equal(await models.ProcessingRunModel.count({ where: { dataImportId: traceImportId } }), before);
+  });
+  await t.test('E09 builds tenant-specific widgets from processed records and applies filters', async () => {
+    const dashboard = await request('GET', '/dashboard', undefined, cookieA);
+    assert.equal(dashboard.status, 200, JSON.stringify(dashboard.body));
+    assert.equal(dashboard.body.dashboard.companyId, companyA.body.company.id);
+    assert.ok(dashboard.body.dashboard.profile);
+    assert.deepEqual(dashboard.body.dashboard.availableWidgets, ['records-by-type', 'records-by-source']);
+    const types = dashboard.body.dashboard.widgets.find((widget) => widget.id === 'records-by-type');
+    assert.ok(types.data.some((item) => item.dataType === 'sales' && item.count === 3));
+    const byType = await request('GET', '/dashboard/widgets/records-by-type?dataType=sales', undefined, cookieA);
+    assert.equal(byType.status, 200);
+    assert.deepEqual(byType.body.widget.data, [{ dataType: 'sales', count: 3 }]);
+    const bySource = await request('GET', `/dashboard/widgets/records-by-source?sourceId=${importSource.id}`, undefined, cookieA);
+    assert.deepEqual(bySource.body.widget.data, [{ sourceId: importSource.id, count: 3 }]);
+    const future = await request('GET', '/dashboard?from=2099-01-01', undefined, cookieA);
+    assert.deepEqual(future.body.dashboard.availableWidgets, []);
+    assert.equal((await request('GET', '/dashboard', undefined, cookieB)).body.dashboard.availableWidgets.length, 0);
+    assert.equal((await request('GET', '/dashboard')).status, 401);
+    assert.equal((await request('GET', '/dashboard?from=2026-02-30', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/dashboard?from=2026-10-01&to=2026-09-01', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/dashboard?sourceId=2147483647', undefined, cookieA)).status, 404);
+    assert.equal((await request('GET', '/dashboard/widgets/unknown', undefined, cookieA)).status, 400);
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);
