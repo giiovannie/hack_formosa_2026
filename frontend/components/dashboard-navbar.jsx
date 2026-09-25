@@ -1,9 +1,10 @@
-import { Bell, ChevronDown, LayoutDashboard, Settings2, Sparkles } from "lucide-react"
+import { Bell, ChevronDown, LayoutDashboard, Settings2, Sparkles, Upload } from "lucide-react"
 import ThemeToggle from "@/components/theme-toggle"
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "processing", label: "Procesamiento", icon: Sparkles },
+  { id: "data-entry", label: "Carga de datos", icon: Upload },
   { id: "settings", label: "Configuración", icon: Settings2 },
 ]
 
