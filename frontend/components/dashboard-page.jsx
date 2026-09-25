@@ -126,7 +126,17 @@ export default function DashboardPage() {
   }
   const IntegratedView = integratedViews[activeView]
   if (IntegratedView) {
-    return <PageEntrance key={activeView}><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><IntegratedView /></div></div></PageEntrance>
+    return (
+      <PageEntrance key={activeView}>
+        <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]">
+          <DashboardNavbar activeView={activeView} onNavigate={setActiveView} />
+          <style>{`@keyframes section-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } } @media (prefers-reduced-motion: reduce) { [class*="animate-[section-rise"] { animation-duration: 0.01ms !important; } }`}</style>
+          <div className="[&>main>header]:hidden [&_main>div>div]:animate-[section-rise_.55s_cubic-bezier(.22,1,.36,1)_both] [&_main>div>div:nth-child(1)]:[animation-delay:.08s] [&_main>div>div:nth-child(2)]:[animation-delay:.18s] [&_main>div>div:nth-child(3)]:[animation-delay:.28s] [&_main>div>div:nth-child(4)]:[animation-delay:.38s] [&_main>div>div:nth-child(5)]:[animation-delay:.48s] [&_main>div>section]:animate-[section-rise_.55s_cubic-bezier(.22,1,.36,1)_both] [&_main>div>section:nth-of-type(1)]:[animation-delay:.12s] [&_main>div>section:nth-of-type(2)]:[animation-delay:.24s] [&_main>div>section:nth-of-type(3)]:[animation-delay:.36s] [&_main>div>section:nth-of-type(4)]:[animation-delay:.48s] [&_main>div>section:nth-of-type(5)]:[animation-delay:.6s] [&_main_section_article]:animate-[section-rise_.5s_cubic-bezier(.22,1,.36,1)_both] [&_main_section_article:nth-child(1)]:[animation-delay:.1s] [&_main_section_article:nth-child(2)]:[animation-delay:.2s] [&_main_section_article:nth-child(3)]:[animation-delay:.3s] [&_main_section_article:nth-child(4)]:[animation-delay:.4s] [&_main_section_article:nth-child(5)]:[animation-delay:.5s] [&_main_section_aside]:animate-[section-rise_.5s_cubic-bezier(.22,1,.36,1)_both] [&_main_section_aside]:[animation-delay:.25s] [&_main_section>div>button]:animate-[section-rise_.5s_cubic-bezier(.22,1,.36,1)_both] [&_main_section>div>button:nth-child(1)]:[animation-delay:.1s] [&_main_section>div>button:nth-child(2)]:[animation-delay:.2s] [&_main_section>div>button:nth-child(3)]:[animation-delay:.3s] [&_main_section>div>div:nth-child(1)]:[animation-delay:.1s] [&_main_section>div>div:nth-child(2)]:[animation-delay:.2s] [&_main_section>div>div:nth-child(3)]:[animation-delay:.3s]">
+            <IntegratedView />
+          </div>
+        </div>
+      </PageEntrance>
+    )
   }
 
   return (
