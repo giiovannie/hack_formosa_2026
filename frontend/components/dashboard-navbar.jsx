@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
-import { Activity, Bell, ChevronDown, FileCheck2, GitBranch, LayoutDashboard, LineChart, Settings2, Upload, Database } from "lucide-react"
+import { Activity, Bell, ChevronDown, ChevronLeft, ChevronRight, FileCheck2, GitBranch, LayoutDashboard, LineChart, Settings2, Upload, Database } from "lucide-react"
+import { motion } from "framer-motion"
 
 const navItems = [
   { id: "data-entry", label: "Carga de datos", icon: Upload },
@@ -18,6 +19,21 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
   const [isCarouselEngaged, setIsCarouselEngaged] = useState(false)
   const profileMenuRef = useRef(null)
   const carouselRef = useRef(null)
+  const lastWheelNavigation = useRef(0)
+
+  const moveCarousel = (direction) => {
+    const currentIndex = navItems.findIndex(({ id }) => id === activeView)
+    const nextIndex = ((currentIndex < 0 ? carouselCenter : currentIndex) + direction + navItems.length) % navItems.length
+    setCarouselCenter(nextIndex)
+    onNavigate(navItems[nextIndex].id)
+    const viewport = carouselRef.current
+    const nextItem = viewport?.children[nextIndex]
+    if (!viewport || !nextItem) return
+    viewport.scrollTo({
+      left: nextItem.offsetLeft - (viewport.clientWidth - nextItem.clientWidth) / 2,
+      behavior: "smooth",
+    })
+  }
 
   useEffect(() => {
     const activeIndex = navItems.findIndex(({ id }) => id === activeView)
@@ -63,9 +79,12 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
           onMouseEnter={() => setIsCarouselEngaged(true)}
           onMouseLeave={() => setIsCarouselEngaged(false)}
           onWheel={(event) => {
-            if (!carouselRef.current) return
+            const now = Date.now()
+            if (!carouselRef.current || now - lastWheelNavigation.current < 220) return
             event.preventDefault()
-            carouselRef.current.scrollLeft += Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX
+            lastWheelNavigation.current = now
+            const delta = Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX
+            if (delta !== 0) moveCarousel(delta > 0 ? 1 : -1)
           }}
           onMouseMove={(event) => {
             const items = [...(carouselRef.current?.children ?? [])]
@@ -79,6 +98,8 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
         >
           <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-[#F8F9FA] to-transparent dark:from-[#0B0F17]" />
           <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-[#F8F9FA] to-transparent dark:from-[#0B0F17]" />
+          <button type="button" aria-label="Sección anterior" onClick={() => moveCarousel(-1)} className="absolute left-0 top-1/2 z-20 grid h-7 w-6 -translate-y-1/2 place-items-center rounded-md bg-white/90 text-[#334155] shadow-sm transition hover:bg-white dark:bg-[#151D2A]/90 dark:text-[#CBD5E1] dark:hover:bg-[#202B3A]"><ChevronLeft className="h-4 w-4" /></button>
+          <button type="button" aria-label="Sección siguiente" onClick={() => moveCarousel(1)} className="absolute right-0 top-1/2 z-20 grid h-7 w-6 -translate-y-1/2 place-items-center rounded-md bg-white/90 text-[#334155] shadow-sm transition hover:bg-white dark:bg-[#151D2A]/90 dark:text-[#CBD5E1] dark:hover:bg-[#202B3A]"><ChevronRight className="h-4 w-4" /></button>
           <div ref={carouselRef} role="group" aria-label="Navegación principal" className="flex w-full items-center gap-1 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {navItems.map(({ id, label, icon: Icon }, index) => {
               const distance = index - carouselCenter
@@ -90,19 +111,23 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
                   type="button"
                   aria-label={label}
                   aria-current={activeView === id ? "page" : undefined}
-                  onClick={() => onNavigate(id)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-[transform,opacity,background-color,color] duration-200 ${activeView === id ? "bg-brand-blue font-semibold text-white shadow-sm dark:bg-brand dark:text-[#0B0F17]" : "text-[#64748B] hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:text-[#F8FAFC]"}`}
+                  onClick={() => {
+                    setCarouselCenter(index)
+                    onNavigate(id)
+                  }}
+                  className={`relative inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors duration-200 ${activeView === id ? "font-semibold text-white" : "text-[#64748B] hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:text-[#F8FAFC]"}`}
                   style={{ opacity, transform: `perspective(500px) rotateY(${distance * -8}deg) scale(${scale})` }}
                 >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  <span>{label}</span>
+                  {activeView === id && <motion.span layoutId="navbar-active-section" className="absolute inset-0 rounded-lg bg-gradient-to-r from-orange-500 to-orange-600 shadow-[0_4px_16px_rgba(234,88,12,0.35)]" transition={{ type: "spring", stiffness: 380, damping: 30 }} />}
+                  <Icon className="relative z-10 h-3.5 w-3.5 shrink-0" />
+                  <span className="relative z-10">{label}</span>
                 </button>
               )
             })}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" aria-label="Ver alertas" aria-current={activeView === "alerts" ? "page" : undefined} onClick={() => onNavigate("alerts")} className={`relative rounded-lg p-2 transition ${activeView === "alerts" ? "bg-brand-blue/10 text-brand-blue dark:bg-brand/10 dark:text-brand" : "text-[#64748B] hover:bg-white hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:bg-[#151D2A] dark:hover:text-[#F8FAFC]"}`}><Bell className="h-5 w-5" /><span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" /></button>
+          <button type="button" aria-label="Ver alertas" aria-current={activeView === "alerts" ? "page" : undefined} onClick={() => onNavigate("alerts")} className={`relative rounded-lg p-2 transition ${activeView === "alerts" ? "bg-orange-500/10 text-orange-500 dark:bg-orange-400/10 dark:text-orange-400" : "text-[#64748B] hover:bg-white hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:bg-[#151D2A] dark:hover:text-[#F8FAFC]"}`}><Bell className="h-5 w-5" /><span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" /></button>
           <div className="relative" ref={profileMenuRef}>
             <button
               type="button"
