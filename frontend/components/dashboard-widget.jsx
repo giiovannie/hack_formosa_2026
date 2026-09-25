@@ -1,5 +1,6 @@
 import { CheckCircle2, LoaderCircle, RefreshCw, XCircle } from "lucide-react"
 import { motion } from "framer-motion"
+import AnimatedNumber from "@/components/animated-number"
 import { widgetStatusLabels } from "@/components/dashboard-data"
 
 const toneClasses = {
@@ -62,12 +63,12 @@ function WidgetState({ widget, onRetry }) {
   )
 }
 
-function WidgetVisual({ widget }) {
+function WidgetVisual({ widget, animationDelay = 0 }) {
   if (widget.bars) {
     return (
       <div className="mt-5 flex h-14 items-end gap-1.5">
         {widget.bars.map((height, index) => (
-          <span key={`${widget.id}-${index}`} className="flex-1 rounded-t-sm bg-brand-blue/20 dark:bg-brand/25" style={{ height: `${height}%` }} />
+          <motion.span key={`${widget.id}-${index}`} className="flex-1 rounded-t-sm bg-brand-blue/20 dark:bg-brand/25" initial={{ height: 0 }} animate={{ height: `${height}%` }} transition={{ duration: 0.55, delay: animationDelay + index * 0.08, ease: "easeOut" }} />
         ))}
       </div>
     )
@@ -76,8 +77,8 @@ function WidgetVisual({ widget }) {
   if (widget.progress) {
     return (
       <div className="mt-5">
-        <div className="mb-2 flex justify-between text-xs font-medium text-[#64748B] dark:text-[#94A3B8]"><span>Capacidad utilizada</span><span>{widget.progress}%</span></div>
-        <div className="h-2 overflow-hidden rounded-full bg-[#E2E8F0] dark:bg-[#263346]"><div className="h-full rounded-full bg-teal-500" style={{ width: `${widget.progress}%` }} /></div>
+        <div className="mb-2 flex justify-between text-xs font-medium text-[#64748B] dark:text-[#94A3B8]"><span>Capacidad utilizada</span><span><AnimatedNumber value={`${widget.progress}%`} delay={animationDelay} /></span></div>
+        <div className="h-2 overflow-hidden rounded-full bg-[#E2E8F0] dark:bg-[#263346]"><motion.div className="h-full rounded-full bg-teal-500" initial={{ width: 0 }} animate={{ width: `${widget.progress}%` }} transition={{ duration: 0.9, delay: animationDelay + 0.2, ease: "easeOut" }} /></div>
       </div>
     )
   }
@@ -85,7 +86,7 @@ function WidgetVisual({ widget }) {
   return null
 }
 
-export default function DashboardWidget({ widget, onRetry }) {
+export default function DashboardWidget({ widget, onRetry, animationDelay = 0 }) {
   const Icon = widget.icon
   const isUnavailable = widget.status === "empty" || widget.status === "error"
 
@@ -97,9 +98,9 @@ export default function DashboardWidget({ widget, onRetry }) {
       </motion.div>
       <motion.div variants={contentSequenceVariants} className="mt-5">
         <motion.p variants={contentRiseVariants} className="text-sm font-medium text-[#64748B] dark:text-[#94A3B8]">{widget.title}</motion.p>
-        <motion.p variants={contentRiseVariants} className={`mt-1 text-2xl font-bold tracking-tight ${isUnavailable ? "text-[#94A3B8]" : "text-[#1E293B] dark:text-[#F8FAFC]"}`}>{widget.value}</motion.p>
+        <motion.p variants={contentRiseVariants} className={`mt-1 text-2xl font-bold tracking-tight ${isUnavailable ? "text-[#94A3B8]" : "text-[#1E293B] dark:text-[#F8FAFC]"}`}><AnimatedNumber value={widget.value} delay={animationDelay} /></motion.p>
       </motion.div>
-      <motion.div variants={contentRiseVariants} className="mt-auto pt-4"><WidgetState widget={widget} onRetry={onRetry} /><WidgetVisual widget={widget} /></motion.div>
+      <motion.div variants={contentRiseVariants} className="mt-auto pt-4"><WidgetState widget={widget} onRetry={onRetry} /><WidgetVisual widget={widget} animationDelay={animationDelay} /></motion.div>
     </motion.article>
   )
 }

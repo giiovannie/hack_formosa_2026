@@ -2,7 +2,7 @@ import { Boxes } from "lucide-react"
 
 export default function Footer() {
   return (
-    <footer className="border-t border-[#E2E8F0] bg-[#F8F9FA] transition-colors duration-300 dark:border-[#263346] dark:bg-[#0B0F17]">
+    <footer data-page-enter="" className="border-t border-[#E2E8F0] bg-[#F8F9FA] transition-colors duration-300 dark:border-[#263346] dark:bg-[#0B0F17]">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 px-6 py-10 md:flex-row">
         <a href="#" className="flex items-center gap-2">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-blue dark:bg-brand">

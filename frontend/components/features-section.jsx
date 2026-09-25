@@ -31,7 +31,7 @@ const features = [
 
 export default function FeaturesSection() {
   return (
-    <section id="funcionalidades" className="mx-auto max-w-6xl px-6 py-24">
+    <section data-page-enter="" id="funcionalidades" className="mx-auto max-w-6xl px-6 py-24">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}

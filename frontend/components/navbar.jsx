@@ -14,7 +14,7 @@ export default function Navbar({ onAuthSuccess }) {
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-[#E2E8F0] bg-[#F8F9FA]/80 backdrop-blur-md transition-colors duration-300 dark:border-[#263346] dark:bg-[#0B0F17]/80">
+      <header data-page-enter="" className="sticky top-0 z-50 border-b border-[#E2E8F0] bg-[#F8F9FA]/80 backdrop-blur-md transition-colors duration-300 dark:border-[#263346] dark:bg-[#0B0F17]/80">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <a href="#" className="flex items-center gap-2 font-semibold tracking-tight">
           <div className="w-10 h-10 bg-gradient-to-tr from-orange-600 to-orange-500 flex items-center justify-center rounded-lg">

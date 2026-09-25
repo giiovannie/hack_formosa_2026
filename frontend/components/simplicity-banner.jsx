@@ -14,7 +14,7 @@ export default function SimplicityBanner() {
           className="absolute -left-16 top-1/2 h-56 w-56 -translate-y-1/2 rounded-full bg-brand-blue/10 blur-3xl dark:bg-brand/10"
           aria-hidden="true"
         />
-        <div className="relative mx-auto max-w-2xl text-center">
+        <div data-page-enter="" className="relative mx-auto max-w-2xl text-center">
           <h2 className="text-balance text-3xl font-bold tracking-tight text-[#1E293B] md:text-4xl dark:text-[#F8FAFC]">
             Software simple, para gente que no tiene tiempo que perder
           </h2>
@@ -28,6 +28,7 @@ export default function SimplicityBanner() {
           {points.map((point) => (
             <div
               key={point.label}
+              data-page-enter=""
               className="flex items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8F9FA] px-5 py-4 dark:border-[#263346] dark:bg-[#0B0F17]"
             >
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-blue/10 text-brand-blue dark:bg-brand/15 dark:text-brand">

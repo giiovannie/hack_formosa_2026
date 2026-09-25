@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 import ProcessingStepList from "@/components/processing-step-list"
 import ProcessingSummary from "@/components/processing-summary"
+import AnimatedNumber from "@/components/animated-number"
 
 const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -111,7 +112,7 @@ export default function ProcessingDashboard({ embedded = false }) {
       </header>}
 
       <main className="mx-auto max-w-[1180px] px-5 py-8 lg:px-8 lg:py-10">
-        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div data-page-enter="" className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-[.18em] text-brand-blue dark:text-[#ff792c]">Flujo de trabajo</p>
             <h1 className="mt-2 text-2xl font-bold tracking-tight text-[#0F172A] dark:text-[#f7f8fa] sm:text-[30px]">
@@ -134,7 +135,7 @@ export default function ProcessingDashboard({ embedded = false }) {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.45fr_0.55fr]">
-          <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-7 dark:border-[#253142] dark:bg-[#0f1621] dark:shadow-none">
+          <section data-page-enter="" className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-7 dark:border-[#253142] dark:bg-[#0f1621] dark:shadow-none">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-medium text-[#64748B] dark:text-[#8490a3]">Estado actual</p>
@@ -166,7 +167,7 @@ export default function ProcessingDashboard({ embedded = false }) {
             <div className="mt-8">
               <div className="mb-3 flex items-center justify-between text-sm text-[#64748B] dark:text-[#8490a3]">
                 <span>Avance</span>
-                <span className="font-semibold text-[#1E293B] dark:text-[#f3f5f7]">{progress}%</span>
+                <span className="font-semibold text-[#1E293B] dark:text-[#f3f5f7]"><AnimatedNumber value={`${progress}%`} duration={0.35} /></span>
               </div>
               <div className="h-2.5 overflow-hidden rounded-full bg-[#E2E8F0] dark:bg-[#253142]">
                 <div

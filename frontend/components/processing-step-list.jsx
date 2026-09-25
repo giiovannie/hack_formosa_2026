@@ -1,4 +1,5 @@
 import { CheckCircle2 } from "lucide-react"
+import AnimatedNumber from "@/components/animated-number"
 
 export default function ProcessingStepList({
   steps,
@@ -22,7 +23,7 @@ export default function ProcessingStepList({
         return (
           <li
             key={step.label}
-            className={`flex items-center gap-4 rounded-lg border p-4 transition ${
+            data-page-enter="" className={`flex items-center gap-4 rounded-lg border p-4 transition ${
               isComplete
                 ? "border-emerald-200 bg-emerald-50 dark:border-[#2b6c55] dark:bg-[#12271f]"
                 : isActive
@@ -61,7 +62,7 @@ export default function ProcessingStepList({
             </div>
 
             <div className="rounded-md bg-white px-3 py-2 text-right text-xs font-medium text-[#1E293B] shadow-sm dark:bg-[#0b111b] dark:text-[#dce1e8]">
-              {step.tag}
+              <AnimatedNumber value={step.tag} delay={index * 0.1} />
             </div>
           </li>
         )

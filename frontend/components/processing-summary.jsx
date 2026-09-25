@@ -1,4 +1,5 @@
 import { ShieldCheck } from "lucide-react"
+import AnimatedNumber from "@/components/animated-number"
 
 export default function ProcessingSummary({ completed }) {
   return (
@@ -9,21 +10,21 @@ export default function ProcessingSummary({ completed }) {
       </div>
 
       <div className="mt-6 space-y-3">
-        <div className="rounded-lg border border-[#E2E8F0] bg-[#F8F9FA] p-4 dark:border-[#293546] dark:bg-[#121a26]">
+        <div data-page-enter="" className="rounded-lg border border-[#E2E8F0] bg-[#F8F9FA] p-4 dark:border-[#293546] dark:bg-[#121a26]">
           <p className="text-xs uppercase tracking-[0.14em] text-[#64748B] dark:text-[#8490a3]">Registros</p>
-          <p className="mt-2 text-2xl font-bold text-[#1E293B] dark:text-[#f3f5f7]">2.148</p>
+          <p className="mt-2 text-2xl font-bold text-[#1E293B] dark:text-[#f3f5f7]"><AnimatedNumber value="2.148" delay={0.2} /></p>
         </div>
-        <div className="rounded-lg border border-[#E2E8F0] bg-[#F8F9FA] p-4 dark:border-[#293546] dark:bg-[#121a26]">
+        <div data-page-enter="" className="rounded-lg border border-[#E2E8F0] bg-[#F8F9FA] p-4 dark:border-[#293546] dark:bg-[#121a26]">
           <p className="text-xs uppercase tracking-[0.14em] text-[#64748B] dark:text-[#8490a3]">Calidad</p>
-          <p className="mt-2 text-2xl font-bold text-[#1E293B] dark:text-[#f3f5f7]">96,4%</p>
+          <p className="mt-2 text-2xl font-bold text-[#1E293B] dark:text-[#f3f5f7]"><AnimatedNumber value="96,4%" delay={0.35} /></p>
         </div>
-        <div className="rounded-lg border border-[#E2E8F0] bg-[#F8F9FA] p-4 dark:border-[#293546] dark:bg-[#121a26]">
+        <div data-page-enter="" className="rounded-lg border border-[#E2E8F0] bg-[#F8F9FA] p-4 dark:border-[#293546] dark:bg-[#121a26]">
           <p className="text-xs uppercase tracking-[0.14em] text-[#64748B] dark:text-[#8490a3]">Errores críticos</p>
-          <p className="mt-2 text-2xl font-bold text-[#1E293B] dark:text-[#f3f5f7]">08</p>
+          <p className="mt-2 text-2xl font-bold text-[#1E293B] dark:text-[#f3f5f7]"><AnimatedNumber value="08" delay={0.5} /></p>
         </div>
       </div>
 
-      <div className="mt-6 rounded-lg border border-brand-blue/20 bg-brand-blue/5 p-4 dark:border-[#6d4c29] dark:bg-[#2a1d12]">
+      <div data-page-enter="" className="mt-6 rounded-lg border border-brand-blue/20 bg-brand-blue/5 p-4 dark:border-[#6d4c29] dark:bg-[#2a1d12]">
         <p className="text-xs uppercase tracking-[0.14em] text-brand-blue dark:text-[#ffb36e]">Estado</p>
         <p className="mt-2 text-sm font-semibold text-[#1E293B] dark:text-[#f2d0ad]">
           {completed ? "Procesamiento finalizado" : "Pendiente de ejecución"}

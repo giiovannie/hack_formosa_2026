@@ -9,6 +9,7 @@ import DataQuality from "@/components/data-quality"
 import { dashboardWidgets } from "@/components/dashboard-data"
 import CompanyConfiguration from "@/components/Profile-and-empresarial-configuration"
 import Traceability from "@/components/traceability"
+import PageEntrance from "@/components/page-entrance"
 
 const riseVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -49,23 +50,23 @@ export default function DashboardPage() {
   const retryWidget = (id) => setWidgets((current) => current.map((widget) => widget.id === id ? { ...widget, status: "loading" } : widget))
 
   if (activeView === "data-entry") {
-    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div><ProcessingDashboard embedded /></div>
+    return <PageEntrance><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div><ProcessingDashboard embedded /></div></PageEntrance>
   }
 
   if (activeView === "traceability") {
-    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><Traceability embedded /></div>
+    return <PageEntrance><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><Traceability embedded /></div></PageEntrance>
   }
 
   if (activeView === "data-quality") {
-    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataQuality /></div></div>
+    return <PageEntrance><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataQuality /></div></div></PageEntrance>
   }
 
   if (activeView === "settings") {
-    return <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0F17]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><CompanyConfiguration embedded /></div>
+    return <PageEntrance><div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0F17]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div data-page-enter=""><CompanyConfiguration embedded /></div></div></PageEntrance>
   }
 
   return (
-    <div id="dashboard" className="min-h-screen bg-[#F8F9FA] text-[#1E293B] dark:bg-[#0B0F17] dark:text-[#F8FAFC]
+    <PageEntrance><div id="dashboard" className="min-h-screen bg-[#F8F9FA] text-[#1E293B] dark:bg-[#0B0F17] dark:text-[#F8FAFC]
       ">
       <DashboardNavbar activeView={activeView} onNavigate={setActiveView} />
       <motion.main initial="hidden" animate="visible" variants={sequenceVariants} className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
@@ -81,8 +82,8 @@ export default function DashboardPage() {
           </motion.div>
         </motion.section>
         <motion.div variants={riseVariants} className="mb-6 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-[#1E293B] dark:text-[#F8FAFC]">Indicadores principales</h2><p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3B8]">Actualización automática cada 15 minutos</p></div><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">Última sincronización: 09:42</span></motion.div>
-        {visibleIds.length === 0 ? <motion.div variants={riseVariants} className="rounded-2xl border border-dashed border-[#CBD5E1] bg-white px-6 py-16 text-center dark:border-[#475569] dark:bg-[#151D2A]"><p className="font-semibold text-[#1E293B] dark:text-[#F8FAFC]">Tu tablero está vacío</p><p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3B8]">Elegí al menos un widget para comenzar.</p></motion.div> : <motion.div variants={cardSequenceVariants} className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">{widgets.filter((widget) => visibleIds.includes(widget.id)).map((widget) => <motion.div key={widget.id} variants={riseVariants}><DashboardWidget widget={widget} onRetry={() => retryWidget(widget.id)} /></motion.div>)}</motion.div>}
+        {visibleIds.length === 0 ? <motion.div variants={riseVariants} className="rounded-2xl border border-dashed border-[#CBD5E1] bg-white px-6 py-16 text-center dark:border-[#475569] dark:bg-[#151D2A]"><p className="font-semibold text-[#1E293B] dark:text-[#F8FAFC]">Tu tablero está vacío</p><p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3B8]">Elegí al menos un widget para comenzar.</p></motion.div> : <motion.div variants={cardSequenceVariants} className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">{widgets.filter((widget) => visibleIds.includes(widget.id)).map((widget, index) => <motion.div key={widget.id} variants={riseVariants}><DashboardWidget widget={widget} onRetry={() => retryWidget(widget.id)} animationDelay={0.65 + index * 0.18} /></motion.div>)}</motion.div>}
       </motion.main>
-    </div>
+    </div></PageEntrance>
   )
 }

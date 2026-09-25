@@ -3,7 +3,7 @@ import { motion } from "framer-motion"
 
 export default function CtaSection() {
   return (
-    <section id="cta" className="mx-auto max-w-6xl px-6 py-24">
+    <section data-page-enter="" id="cta" className="mx-auto max-w-6xl px-6 py-24">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         whileInView={{ opacity: 1, y: 0 }}

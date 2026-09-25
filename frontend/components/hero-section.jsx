@@ -10,16 +10,16 @@ export default function HeroSection() {
         <div className="text-center lg:text-left">
         
 
-          <h1 className="text-balance text-4xl font-bold leading-tight tracking-tight text-[#0F172A] md:text-6xl dark:text-[#F9FAFB]">
+          <h1 data-page-enter="" className="text-balance text-4xl font-bold leading-tight tracking-tight text-[#0F172A] md:text-6xl dark:text-[#F9FAFB]">
             Transformá el caos de tus planillas en decisiones que hacen crecer tu Pyme
           </h1>
 
-          <p className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600 dark:text-slate-400">
+          <p data-page-enter="" className="mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-slate-600 dark:text-slate-400">
             Stockflow reúne tu stock, tus ventas y tus números en un solo lugar. Pensado para pequeños comercios y
             emprendedores que quieren claridad, no complicaciones.
           </p>
 
-          <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:justify-start">
+          <div data-page-enter="" className="mt-10 flex flex-col items-center gap-4 sm:flex-row lg:justify-start">
           <a
             href="#cta"
             className="group inline-flex items-center gap-2 rounded-lg bg-brand-blue px-6 py-3 font-medium text-white shadow-lg shadow-blue-600/30 transition-all hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-blue-600/50 dark:bg-brand dark:shadow-[0_0_20px_rgba(249,115,22,0.3)] dark:hover:bg-brand-hover dark:hover:shadow-[0_0_20px_rgba(249,115,22,0.45)]"
@@ -37,7 +37,7 @@ export default function HeroSection() {
         </div>
       </div>
 
-        <div className="relative mx-auto w-full max-w-2xl [perspective:1600px]" aria-label="Vista previa del dashboard de Stockflow">
+        <div data-page-enter="" className="relative mx-auto w-full max-w-2xl [perspective:1600px]" aria-label="Vista previa del dashboard de Stockflow">
           <div className="absolute -inset-8 rounded-[3rem] bg-brand-blue/10 blur-3xl dark:bg-brand/20" aria-hidden="true" />
           <div className="relative rotate-x-[10deg] rotate-y-[-12deg] rounded-2xl border border-[#E2E8F0] bg-white/90 p-3 shadow-[0_30px_90px_rgba(15,23,42,0.18)] transition-transform duration-700 hover:rotate-x-[5deg] hover:rotate-y-[-5deg] dark:border-[#263346] dark:bg-[#151D2A]/90 dark:shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
             <div className="overflow-hidden rounded-xl border border-[#E2E8F0] bg-[#F8F9FA] dark:border-[#263346] dark:bg-[#0B0F17]">
