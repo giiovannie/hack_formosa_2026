@@ -21,7 +21,7 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
   const carouselRef = useRef(null)
   const lastWheelNavigation = useRef(0)
 
-  const moveCarousel = (direction, focusItem = false) => {
+  const moveCarousel = (direction) => {
     const currentIndex = navItems.findIndex(({ id }) => id === activeView)
     const nextIndex = ((currentIndex < 0 ? carouselCenter : currentIndex) + direction + navItems.length) % navItems.length
     setCarouselCenter(nextIndex)
@@ -29,7 +29,6 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
     const viewport = carouselRef.current
     const nextItem = viewport?.children[nextIndex]
     if (!viewport || !nextItem) return
-    if (focusItem) requestAnimationFrame(() => nextItem.focus())
     viewport.scrollTo({
       left: nextItem.offsetLeft - (viewport.clientWidth - nextItem.clientWidth) / 2,
       behavior: "smooth",
@@ -49,6 +48,35 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
       behavior: "smooth",
     })
   }, [activeView])
+
+  useEffect(() => {
+    const handleSectionKeys = (event) => {
+      if (!['ArrowLeft', 'ArrowRight'].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey || isProfileMenuOpen) return
+      const target = event.target
+      if (target instanceof HTMLElement && (target.isContentEditable || target.closest('input, textarea, select, [role="textbox"]'))) return
+
+      event.preventDefault()
+      const currentIndex = navItems.findIndex(({ id }) => id === activeView)
+      const baseIndex = currentIndex < 0 ? carouselCenter : currentIndex
+      const direction = event.key === 'ArrowRight' ? 1 : -1
+      const nextIndex = (baseIndex + direction + navItems.length) % navItems.length
+      const nextItem = carouselRef.current?.children[nextIndex]
+      setCarouselCenter(nextIndex)
+      onNavigate(navItems[nextIndex].id)
+      requestAnimationFrame(() => {
+        nextItem?.focus()
+        if (carouselRef.current && nextItem) {
+          carouselRef.current.scrollTo({
+            left: nextItem.offsetLeft - (carouselRef.current.clientWidth - nextItem.clientWidth) / 2,
+            behavior: 'smooth',
+          })
+        }
+      })
+    }
+
+    document.addEventListener('keydown', handleSectionKeys)
+    return () => document.removeEventListener('keydown', handleSectionKeys)
+  }, [activeView, carouselCenter, isProfileMenuOpen, onNavigate])
 
   useEffect(() => {
     if (!isProfileMenuOpen) return undefined
@@ -106,11 +134,6 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
             role="toolbar"
             aria-label="Navegación principal"
             aria-orientation="horizontal"
-            onKeyDown={(event) => {
-              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
-              event.preventDefault()
-              moveCarousel(event.key === "ArrowRight" ? 1 : -1, true)
-            }}
             className="flex w-full items-center gap-1 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {navItems.map(({ id, label, icon: Icon }, index) => {
