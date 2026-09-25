@@ -21,7 +21,7 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
   const carouselRef = useRef(null)
   const lastWheelNavigation = useRef(0)
 
-  const moveCarousel = (direction) => {
+  const moveCarousel = (direction, focusItem = false) => {
     const currentIndex = navItems.findIndex(({ id }) => id === activeView)
     const nextIndex = ((currentIndex < 0 ? carouselCenter : currentIndex) + direction + navItems.length) % navItems.length
     setCarouselCenter(nextIndex)
@@ -29,6 +29,7 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
     const viewport = carouselRef.current
     const nextItem = viewport?.children[nextIndex]
     if (!viewport || !nextItem) return
+    if (focusItem) requestAnimationFrame(() => nextItem.focus())
     viewport.scrollTo({
       left: nextItem.offsetLeft - (viewport.clientWidth - nextItem.clientWidth) / 2,
       behavior: "smooth",
@@ -100,7 +101,18 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
           <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-[#F8F9FA] to-transparent dark:from-[#0B0F17]" />
           <button type="button" aria-label="Sección anterior" onClick={() => moveCarousel(-1)} className="absolute left-0 top-1/2 z-20 grid h-7 w-6 -translate-y-1/2 place-items-center rounded-md bg-white/90 text-[#334155] shadow-sm transition hover:bg-white dark:bg-[#151D2A]/90 dark:text-[#CBD5E1] dark:hover:bg-[#202B3A]"><ChevronLeft className="h-4 w-4" /></button>
           <button type="button" aria-label="Sección siguiente" onClick={() => moveCarousel(1)} className="absolute right-0 top-1/2 z-20 grid h-7 w-6 -translate-y-1/2 place-items-center rounded-md bg-white/90 text-[#334155] shadow-sm transition hover:bg-white dark:bg-[#151D2A]/90 dark:text-[#CBD5E1] dark:hover:bg-[#202B3A]"><ChevronRight className="h-4 w-4" /></button>
-          <div ref={carouselRef} role="group" aria-label="Navegación principal" className="flex w-full items-center gap-1 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div
+            ref={carouselRef}
+            role="toolbar"
+            aria-label="Navegación principal"
+            aria-orientation="horizontal"
+            onKeyDown={(event) => {
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+              event.preventDefault()
+              moveCarousel(event.key === "ArrowRight" ? 1 : -1, true)
+            }}
+            className="flex w-full items-center gap-1 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
             {navItems.map(({ id, label, icon: Icon }, index) => {
               const distance = index - carouselCenter
               const scale = Math.max(0.78, 1 - Math.abs(distance) * 0.08)
