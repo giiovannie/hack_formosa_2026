@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react"
-import { Bell, ChevronDown, Database, FileCheck2, GitBranch, LayoutDashboard, Settings2, Upload } from "lucide-react"
+import { Bell, ChevronDown, FileCheck2, GitBranch, LayoutDashboard, Settings2, Upload } from "lucide-react"
 
 const navItems = [
   { id: "data-entry", label: "Carga de datos", icon: Upload },
-  { id: "processing", label: "Procesamiento", icon: Database },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "data-quality", label: "Calidad de datos", icon: FileCheck2 },
   { id: "traceability", label: "Trazabilidad", icon: GitBranch },
