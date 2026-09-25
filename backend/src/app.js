@@ -10,6 +10,8 @@ import { createLoginController } from './controllers/auth.controller.js';
 import { createCompanyRouter } from './routes/company.routes.js';
 import { createUserRouter } from './routes/user.routes.js';
 import { createAuthRouter } from './routes/auth.routes.js';
+import { createCompanyProfileRouter } from './routes/companyProfile.routes.js';
+import { createCompanyProfileControllers } from './controllers/companyProfile.controller.js';
 
 export const createApp = ({ database, models, config }) => {
   if (!config.FRONTEND_URL || !/^https?:$/.test(new URL(config.FRONTEND_URL).protocol)) {
@@ -33,6 +35,7 @@ export const createApp = ({ database, models, config }) => {
   app.use('/api/v1/auth', createAuthRouter(createLoginController(models, tokens, config)));
   app.use('/api/v1/empresas', createCompanyRouter(createCompanyControllers(database, models), auth));
   app.use('/api/v1/usuarios', createUserRouter(createUserControllers(database, models), auth));
+  app.use('/api/v1/empresa/perfil', createCompanyProfileRouter(createCompanyProfileControllers(database, models), auth));
   app.use((req, res) => res.status(404).json({ message: 'Recurso no encontrado' }));
   app.use(errorMiddleware);
   return app;

@@ -60,6 +60,20 @@ Toda entidad empresarial deberá poder relacionarse con la empresa correspondien
 
 # Entidades iniciales
 
+## BE E02 — CompanyProfile
+
+Decisión del usuario: Company 1 — 1 CompanyProfile, sin catálogos ni tablas auxiliares para sus valores. El perfil se configura mediante el primer PUT; antes de eso Company puede no tener perfil.
+
+- `id`: INT, PK, autoincremental.
+- `companyId`: INT, NOT NULL, UNIQUE, FK a Company.id.
+- `industry`: STRING, NOT NULL (rubro libre).
+- `areas`, `availableData`, `analysisObjectives`: JSON, NOT NULL; cada valor debe ser un array de strings no vacíos, sin catálogos.
+- `createdAt`, `updatedAt`: administrados por Sequelize.
+
+Relación `Company.hasOne(CompanyProfile)` con alias `profile` y `CompanyProfile.belongsTo(Company)` con alias `company`. FK con ON DELETE RESTRICT y ON UPDATE CASCADE; motor InnoDB. No se expone eliminación del perfil. La baja lógica de Company conserva el perfil y bloquea su acceso mediante la autenticación existente. `companyId` se obtiene exclusivamente de la sesión. El índice único y el bloqueo transaccional de Company impiden crear perfiles duplicados bajo concurrencia.
+
+`npm run db:init` crea la nueva tabla sin alterar ni borrar tablas existentes.
+
 Para comenzar el Backend se definen:
 
 ```text

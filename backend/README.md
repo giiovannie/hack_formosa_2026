@@ -22,3 +22,9 @@ Autenticación mediante cookie HttpOnly y SameSite=Strict. En producción requie
 La suite de integración no carga `.env` ni usa `DB_NAME`. Puede configurarse mediante `TEST_DB_HOST`, `TEST_DB_PORT`, `TEST_DB_USER` y `TEST_DB_PASSWORD` en el entorno. Por defecto usa MySQL local, puerto 3306, usuario root sin contraseña, solo para pruebas locales.
 
 Cubre registro y rollback, unicidad, validaciones, paginación, roles, aislamiento entre empresas, JWT/cookies, cambio de contraseña, claves foráneas, eliminación lógica y protección concurrente del último owner.
+
+## BE E02 — Perfil empresarial
+
+`GET` y `PUT /api/v1/empresa/perfil` consultan y guardan el perfil de la empresa autenticada. El PUT es exclusivo de owners; el contrato y nombres de campos están en `doc/api-contract.md`. Las listas se guardan como JSON en una única tabla `CompanyProfiles`, con `companyId` único.
+
+Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa tabla. Las tablas existentes se conservan. La suite de integración incluye persistencia, validación de listas, aislamiento y creación concurrente del perfil.

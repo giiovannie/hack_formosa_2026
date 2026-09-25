@@ -1,5 +1,18 @@
 # API-CONTRACT.md
 
+## BE E02 — Perfil y configuración empresarial (IMPLEMENTADO)
+
+Tarjeta: https://trello.com/c/M8COh8Y5 (132). Perfil único por empresa, obtenida exclusivamente del usuario autenticado. JSON en inglés: `industry` corresponde a rubro; `areas` a áreas; `availableData` a datos disponibles; `analysisObjectives` a objetivos de análisis.
+
+- `GET /api/v1/empresa/perfil`: cualquier usuario autenticado de la empresa. Respuesta 200 `{ message, profile }`; `profile` es `null` si aún no fue configurado. La consulta no crea registros.
+- `PUT /api/v1/empresa/perfil`: solo `owner`. Crea el perfil si no existe o reemplaza sus cuatro valores. Body obligatorio `{ industry, areas, availableData, analysisObjectives }`. Respuesta 200 `{ message, profile }`, tanto en creación como en actualización. Operación atómica, sin modificar Company ni usuarios.
+
+`industry` es texto libre no vacío, sin espacios externos, hasta 255 caracteres. Las otras propiedades son arrays obligatorios de textos no vacíos; se recortan espacios externos. Se permiten arrays vacíos para borrar una selección. No hay catálogos; se conservan orden y duplicados. Aplica el límite JSON existente de 32 KiB. No se admiten campos adicionales ni parámetros query, especialmente `companyId`.
+
+Perfil público: `{ id, companyId, industry, areas, availableData, analysisObjectives, createdAt, updatedAt }`. Todos los accesos usan `req.user.companyId`. Escrituras concurrentes se serializan por Company y se revalida el owner dentro de la transacción. Una empresa o usuario inactivo no puede acceder.
+
+Errores: 400 por entradas inválidas (formato general de validación); 401 sesión inválida; 403 permisos insuficientes/origen no permitido; 404 empresa ya no disponible durante una escritura; 500 error interno sin detalles. Autenticación, cookie y protección de origen reutilizan BE E01.
+
 ## BE E01 — Empresas y usuarios (IMPLEMENTADO)
 
 Tarjeta: https://trello.com/c/dSiy7F4C (130). Contrato aprobado por el usuario el 2026-09-25. Implementado y validado mediante pruebas HTTP sobre MySQL real en `backend/test/api.integration.test.js`.

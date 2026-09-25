@@ -6,7 +6,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01 HTTP contract and isolation on real MySQL', async (t) => {
+test('BE E01/E02 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -115,6 +115,68 @@ test('BE E01 HTTP contract and isolation on real MySQL', async (t) => {
     const duplicate = await request('PUT', `/usuarios/${member.id}`, { ...owner('a@example.com'), role: 'member' }, cookieA);
     assert.equal(duplicate.status, 409);
   });
+  const profileData = { industry: 'Comercio', areas: ['Ventas'], availableData: ['CSV'], analysisObjectives: ['Mejorar ventas'] };
+  await t.test('E02 missing profile is null; concurrent first writes create one persistent profile', async () => {
+    const initial = await request('GET', '/empresa/perfil', undefined, cookieA);
+    assert.equal(initial.status, 200);
+    assert.equal(initial.body.profile, null);
+    assert.equal(await models.CompanyProfileModel.count(), 0);
+    const alternative = { industry: 'Servicios', areas: ['Compras'], availableData: [], analysisObjectives: ['Reducir costos'] };
+    const results = await Promise.all([
+      request('PUT', '/empresa/perfil', profileData, cookieA),
+      request('PUT', '/empresa/perfil', alternative, cookieA),
+    ]);
+    assert.deepEqual(results.map((result) => result.status), [200, 200]);
+    assert.equal(results[0].body.profile.id, results[1].body.profile.id);
+    assert.equal(await models.CompanyProfileModel.count({ where: { companyId: companyA.body.company.id } }), 1);
+    const persisted = await models.CompanyProfileModel.findOne({ where: { companyId: companyA.body.company.id } });
+    const expected = persisted.industry === profileData.industry ? profileData : alternative;
+    for (const key of Object.keys(expected)) assert.deepEqual(persisted[key], expected[key]);
+    const read = await request('GET', '/empresa/perfil', undefined, cookieA);
+    for (const key of Object.keys(expected)) assert.deepEqual(read.body.profile[key], expected[key]);
+  });
+  await t.test('E02 replacement persists trimmed arrays, permits empty lists and enforces unique company FK', async () => {
+    const response = await request('PUT', '/empresa/perfil', {
+      industry: ' Comercio ', areas: [' Ventas ', 'Ventas'], availableData: [], analysisObjectives: [' Crecer '],
+    }, cookieA);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.profile.industry, 'Comercio');
+    assert.deepEqual(response.body.profile.areas, ['Ventas', 'Ventas']);
+    assert.deepEqual(response.body.profile.availableData, []);
+    assert.deepEqual(response.body.profile.analysisObjectives, ['Crecer']);
+    await assert.rejects(models.CompanyProfileModel.create({ ...profileData, companyId: companyA.body.company.id }),
+      (error) => error.name === 'SequelizeUniqueConstraintError');
+    await assert.rejects(models.CompanyProfileModel.create({ ...profileData, companyId: 2147483647 }),
+      (error) => error.name === 'SequelizeForeignKeyConstraintError');
+  });
+  await t.test('E02 rejects invalid lists and tenant injection without changing persisted data', async () => {
+    const before = (await request('GET', '/empresa/perfil', undefined, cookieA)).body.profile;
+    for (const field of ['areas', 'availableData', 'analysisObjectives']) {
+      for (const value of [null, 'Ventas', {}, [1], [' '], [{ name: 'Ventas' }]]) {
+        assert.equal((await request('PUT', '/empresa/perfil', { ...profileData, [field]: value }, cookieA)).status, 400);
+      }
+      const missing = { ...profileData };
+      delete missing[field];
+      assert.equal((await request('PUT', '/empresa/perfil', missing, cookieA)).status, 400);
+    }
+    assert.equal((await request('PUT', '/empresa/perfil', { ...profileData, industry: '' }, cookieA)).status, 400);
+    assert.equal((await request('PUT', '/empresa/perfil', { ...profileData, companyId: companyB.body.company.id }, cookieA)).status, 400);
+    assert.equal((await request('PUT', '/empresa/perfil?companyId=999', profileData, cookieA)).status, 400);
+    assert.equal((await request('GET', '/empresa/perfil?companyId=999', undefined, cookieA)).status, 400);
+    assert.deepEqual((await request('GET', '/empresa/perfil', undefined, cookieA)).body.profile, before);
+  });
+  await t.test('E02 keeps companies isolated and restricts writes to their owner', async () => {
+    assert.equal((await request('GET', '/empresa/perfil')).status, 401);
+    assert.equal((await request('PUT', '/empresa/perfil', profileData)).status, 401);
+    assert.equal((await request('GET', '/empresa/perfil', undefined, cookieB)).body.profile, null);
+    const other = await request('PUT', '/empresa/perfil', { ...profileData, industry: 'Industria B' }, cookieB);
+    assert.equal(other.status, 200);
+    assert.equal(other.body.profile.companyId, companyB.body.company.id);
+    assert.equal((await request('GET', '/empresa/perfil', undefined, cookieA)).body.profile.industry, 'Comercio');
+    assert.equal((await request('GET', '/empresa/perfil', undefined, memberCookie)).body.profile.companyId, companyA.body.company.id);
+    assert.equal((await request('PUT', '/empresa/perfil', profileData, memberCookie)).status, 403);
+    assert.equal((await request('PUT', '/empresa/perfil', profileData, cookieA, 'https://untrusted.example')).status, 403);
+  });
   await t.test('last owner cannot be deleted or demoted', async () => {
     assert.equal((await request('DELETE', `/usuarios/${companyA.body.user.id}`, undefined, cookieA)).status, 409);
     assert.equal((await request('PUT', `/usuarios/${companyA.body.user.id}`, { ...owner('a@example.com'), role: 'member' }, cookieA)).status, 409);
@@ -151,6 +213,7 @@ test('BE E01 HTTP contract and isolation on real MySQL', async (t) => {
     assert.equal(await models.UserModel.findByPk(member.id), null);
     assert.ok((await models.UserModel.findByPk(member.id, { paranoid: false })).deletedAt);
     assert.equal((await request('GET', `/empresas/${companyA.body.company.id}`, undefined, memberCookie)).status, 401);
+    assert.equal((await request('GET', '/empresa/perfil', undefined, memberCookie)).status, 401);
     assert.equal((await request('POST', '/auth/login', { email: member.email, password: 'test-password-123' })).status, 401);
     assert.equal((await request('POST', '/usuarios', { ...owner(member.email), role: 'member' }, cookieA)).status, 409);
   });
@@ -158,6 +221,9 @@ test('BE E01 HTTP contract and isolation on real MySQL', async (t) => {
     await models.CompanyModel.destroy({ where: { id: companyB.body.company.id } });
     assert.ok(await models.UserModel.findByPk(companyB.body.user.id));
     assert.equal((await request('GET', '/usuarios', undefined, cookieB)).status, 401);
+    assert.equal((await request('GET', '/empresa/perfil', undefined, cookieB)).status, 401);
+    assert.equal((await request('PUT', '/empresa/perfil', profileData, cookieB)).status, 401);
+    assert.ok(await models.CompanyProfileModel.findOne({ where: { companyId: companyB.body.company.id } }));
     assert.equal((await request('POST', '/auth/login', { email: 'b@example.com', password: 'test-password-123' })).status, 401);
   });
 });
