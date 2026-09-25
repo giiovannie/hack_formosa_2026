@@ -7,7 +7,7 @@ import SimplicityBanner from "@/components/simplicity-banner"
 import CtaSection from "@/components/cta-section"
 import Footer from "@/components/footer"
 import ThemeToggle from "@/components/theme-toggle"
-import ProcessingDashboard from "@/components/processing-dashboard"
+import DashboardPage from "@/components/dashboard-page"
 
 function LandingPage({ onAuthSuccess }) {
   return (
@@ -33,5 +33,5 @@ export default function Page() {
     return <LandingPage onAuthSuccess={() => setIsAuthenticated(true)} />
   }
 
-  return <ProcessingDashboard />
+  return <DashboardPage />
 }
