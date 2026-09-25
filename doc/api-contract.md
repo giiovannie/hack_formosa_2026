@@ -1241,6 +1241,17 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E08 — Trazabilidad
+
+Todas las rutas requieren sesión y buscan exclusivamente dentro de la empresa autenticada; un registro o importación ajenos responden `404`. Las respuestas no incluyen datos crudos ni datasets completos.
+
+- `GET /api/v1/trazabilidad/registros/:registroId`: devuelve `{ message, trace }` con `recordId`, `source` (`id`, `name`, `type`, `origin`, `deletedAt`), `importation` (`id`, `kind`, `dataType`, `createdAt`), `processing` (`id`, `status`, `stages`, `createdAt`, `updatedAt`), `validation` (`status`, `validatedAt`) y `persistence` (`recordId`, `createdAt`).
+- `GET /api/v1/trazabilidad/importaciones/:importacionId?page=1&limit=20`: devuelve `{ message, history: { importation, source, runs }, pagination }`. Cada ejecución de `runs` conserva `id`, `status`, `stages`, `errors`, resumen `quality` cuando existe, `qualityValidatedAt`, `persistedRecords`, `createdAt` y `updatedAt`. Límite máximo 100.
+
+La traza incluye fuentes con baja lógica para mantener su origen histórico. La fecha de validación se conserva dentro del resultado de la ejecución ETL; la lectura de trazas no altera el historial.
+
+---
+
 ## BE E07 — Persistencia y almacenamiento
 
 La persistencia la realiza Node/Sequelize en MySQL después de ETL y validación de calidad. La empresa se toma de la sesión. Todas las rutas requieren autenticación; los recursos de otra empresa responden `404`.

@@ -22,6 +22,8 @@ import { createQualityRouter } from './routes/quality.routes.js';
 import { createQualityControllers } from './controllers/quality.controller.js';
 import { createProcessedRecordRouter } from './routes/processedRecord.routes.js';
 import { createProcessedRecordControllers } from './controllers/processedRecord.controller.js';
+import { createTraceRouter } from './routes/trace.routes.js';
+import { createTraceControllers } from './controllers/trace.controller.js';
 
 export const createApp = ({ database, models, config }) => {
   if (!config.FRONTEND_URL || !/^https?:$/.test(new URL(config.FRONTEND_URL).protocol)) {
@@ -51,6 +53,7 @@ export const createApp = ({ database, models, config }) => {
   app.use('/api/v1/etl', createEtlRouter(createEtlControllers(database, models, config), auth));
   app.use('/api/v1/calidad', createQualityRouter(createQualityControllers(database, models), auth));
   app.use('/api/v1/datos-procesados', createProcessedRecordRouter(createProcessedRecordControllers(database, models), auth));
+  app.use('/api/v1/trazabilidad', createTraceRouter(createTraceControllers(models), auth));
   app.use((req, res) => res.status(404).json({ message: 'Recurso no encontrado' }));
   app.use(errorMiddleware);
   return app;

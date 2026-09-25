@@ -34,7 +34,7 @@ export const createQualityControllers = (database, models) => {
             throw Object.assign(new Error('Regla para columna inexistente'), { status: 400 });
           }
           const quality = assessQuality(run.result, rules, run.result.corrections || {});
-          await run.update({ result: { ...run.result, rules, quality } }, { transaction });
+          await run.update({ result: { ...run.result, rules, quality, qualityValidatedAt: new Date().toISOString() } }, { transaction });
           return publicQuality(run);
         });
         return res.status(200).json({ message: 'Calidad validada', ...output });
@@ -80,7 +80,7 @@ export const createQualityControllers = (database, models) => {
           }
           const corrections = { ...(run.result.corrections || {}), [row]: record };
           const quality = assessQuality(run.result, run.result.rules || {}, corrections);
-          await run.update({ result: { ...run.result, corrections, quality } }, { transaction });
+          await run.update({ result: { ...run.result, corrections, quality, qualityValidatedAt: new Date().toISOString() } }, { transaction });
           return publicQuality(run);
         });
         return res.status(200).json({ message: 'Registro corregido', ...output });

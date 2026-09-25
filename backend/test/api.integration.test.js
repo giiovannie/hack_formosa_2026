@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E07 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E08 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -221,6 +221,8 @@ test('BE E01–E07 HTTP contracts and isolation on real MySQL', async (t) => {
   });
   let importSource;
   let importId;
+  let tracedRecordId;
+  let traceImportId;
   const uploadCsv = async (cookie, sourceId, filename, content, extra = {}) => {
     const form = new FormData();
     form.set('sourceId', String(sourceId));
@@ -338,6 +340,7 @@ test('BE E01–E07 HTTP contracts and isolation on real MySQL', async (t) => {
     const csv = await uploadCsv(cookieA, importSource.id, 'stored.csv', 'product,quantity\nA,2\nA,2\n , \n');
     assert.equal(csv.status, 201);
     const id = csv.body.dataImport.id;
+    traceImportId = id;
     assert.equal((await request('POST', `/datos-procesados/importaciones/${id}`, undefined, cookieA)).status, 409);
     assert.equal((await request('POST', `/datos-procesados/importaciones/${id}`, undefined, cookieB)).status, 404);
     assert.equal((await request('POST', `/datos-procesados/importaciones/${id}`)).status, 401);
@@ -359,6 +362,7 @@ test('BE E01–E07 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal(list.status, 200);
     assert.equal(list.body.pagination.total, 1);
     const record = list.body.records[0];
+    tracedRecordId = record.id;
     assert.equal(record.companyId, companyA.body.company.id);
     assert.equal(record.sourceId, importSource.id);
     assert.equal(record.dataImportId, id);
@@ -389,10 +393,39 @@ test('BE E01–E07 HTTP contracts and isolation on real MySQL', async (t) => {
       dataImportId: id, processingRunId: processed.body.process.id, rowNumber: 99, dataType: 'sales', values: { product: 'C' } }),
     (error) => error.name === 'SequelizeForeignKeyConstraintError');
   });
+  await t.test('E08 reconstructs a record path and import history without changing it', async () => {
+    const trace = await request('GET', `/trazabilidad/registros/${tracedRecordId}`, undefined, cookieA);
+    assert.equal(trace.status, 200, JSON.stringify(trace.body));
+    assert.equal(trace.body.trace.recordId, tracedRecordId);
+    assert.equal(trace.body.trace.source.id, importSource.id);
+    assert.equal(trace.body.trace.importation.id, traceImportId);
+    assert.equal(trace.body.trace.processing.status, 'completed');
+    assert.equal(trace.body.trace.validation.status, 'valid');
+    assert.ok(trace.body.trace.validation.validatedAt);
+    assert.ok(trace.body.trace.importation.createdAt);
+    assert.ok(trace.body.trace.persistence.createdAt);
+    assert.equal(JSON.stringify(trace.body).includes('rawPayload'), false);
+    assert.equal((await request('GET', `/trazabilidad/registros/${tracedRecordId}`, undefined, cookieB)).status, 404);
+    assert.equal((await request('GET', `/trazabilidad/registros/${tracedRecordId}`)).status, 401);
+    const history = await request('GET', `/trazabilidad/importaciones/${traceImportId}?page=1&limit=1`, undefined, cookieA);
+    assert.equal(history.status, 200, JSON.stringify(history.body));
+    assert.equal(history.body.pagination.total, 2);
+    assert.equal(history.body.history.runs.length, 1);
+    assert.equal(history.body.history.runs[0].persistedRecords, 1);
+    assert.equal((await request('GET', `/trazabilidad/importaciones/${traceImportId}?page=2&limit=1`, undefined, cookieA)).body.history.runs.length, 1);
+    assert.equal((await request('GET', `/trazabilidad/importaciones/${traceImportId}`, undefined, cookieB)).status, 404);
+    assert.equal((await request('GET', `/trazabilidad/importaciones/${traceImportId}?limit=101`, undefined, cookieA)).status, 400);
+    const before = await models.ProcessingRunModel.count({ where: { dataImportId: traceImportId } });
+    await request('GET', `/trazabilidad/importaciones/${traceImportId}`, undefined, cookieA);
+    assert.equal(await models.ProcessingRunModel.count({ where: { dataImportId: traceImportId } }), before);
+  });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);
     assert.ok(await models.SourceModel.findByPk(importSource.id));
     await models.SourceModel.destroy({ where: { id: importSource.id } });
+    const historical = await request('GET', `/trazabilidad/registros/${tracedRecordId}`, undefined, cookieA);
+    assert.equal(historical.status, 200);
+    assert.ok(historical.body.trace.source.deletedAt);
     assert.equal((await uploadCsv(cookieA, importSource.id, 'sales.csv', 'a,b\n1,2')).status, 404);
     assert.equal((await request('POST', '/datos/registros', { sourceId: importSource.id, dataType: 'sales', record: { x: 1 } }, cookieA)).status, 404);
     assert.equal((await request('GET', `/datos/importaciones/${importId}`, undefined, cookieA)).status, 200);
