@@ -1,5 +1,16 @@
 # API-CONTRACT.md
 
+## BE E03 — Entrada y carga de datos (IMPLEMENTADO)
+
+Tarjeta: https://trello.com/c/UHxJgrrx (134). Todos los endpoints requieren usuario autenticado; `companyId` siempre proviene de la sesión. Los datos quedan sin procesar (`pending`), listos para una tarea ETL posterior. Cada carga representa una `dataImport`; no crea ventas, compras ni métricas automáticamente.
+
+- `POST /api/v1/datos/importaciones`: `multipart/form-data` con `file` CSV UTF-8 (máximo 1 MiB), `sourceId` entero positivo, `dataType` texto no vacío (máximo 100), `metadata` objeto JSON opcional serializado como texto. El nombre del archivo debe terminar en `.csv`; se rechazan archivos vacíos o no UTF-8. Respuesta 201 `{ message, dataImport }`.
+- `POST /api/v1/datos/registros`: JSON `{ sourceId, dataType, record, metadata? }`. `record` es objeto JSON no vacío; `metadata` es objeto opcional. Respuesta 201 `{ message, dataImport }`. La validación semántica del registro corresponde a ETL.
+- `GET /api/v1/datos/importaciones`: query `page` (1), `limit` (10, máximo 100). Respuesta 200 `{ message, dataImports, pagination }`. Lista sin contenido crudo.
+- `GET /api/v1/datos/importaciones/:id`: ID positivo. Respuesta 200 `{ message, dataImport }`, sin contenido crudo. Los datos originales se conservan internamente para ETL.
+
+El resumen público de una importación contiene `id`, `companyId`, `sourceId`, `kind` (`file`/`manual`), `dataType`, `metadata`, `originalFilename` (`null` para manual), `status` (`pending`), `createdAt` y `updatedAt`. La fuente debe estar activa y pertenecer a la misma empresa. Una carga ajena o fuente ajena responde 404. Error 400 para formato/entrada inválida, 401 para sesión inválida, 403 para origen no permitido, 413 para archivo superior a 1 MiB, 500 sin detalles internos. No se acepta un `companyId` enviado por cliente.
+
 ## BE E04 — Gestión de fuentes (IMPLEMENTADO)
 
 Tarjeta: https://trello.com/c/MKdsN0Z8 (136). Base `/api/v1/fuentes`; usuario autenticado consulta, `owner` crea, actualiza y elimina fuentes de su empresa. El tenant siempre proviene de la sesión.

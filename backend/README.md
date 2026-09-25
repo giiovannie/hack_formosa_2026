@@ -32,3 +32,9 @@ Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa ta
 ## BE E04 — Fuentes de datos
 
 `/api/v1/fuentes` permite consultar fuentes a usuarios autenticados y crear, editar o dar de baja fuentes a owners de la empresa. Usa eliminación lógica y distingue `internal` de `external`. `npm run db:init` crea la tabla `Sources` en bases existentes sin alterar las anteriores. El contrato está en `doc/api-contract.md`. Las importaciones futuras deben impedir la baja de una fuente que ya referencien.
+
+## BE E03 — Entrada de datos
+
+`POST /api/v1/datos/importaciones` recibe CSV UTF-8 en `multipart/form-data`; `POST /api/v1/datos/registros` recibe un registro JSON manual. `GET /api/v1/datos/importaciones` y `GET /api/v1/datos/importaciones/:id` exponen estado y metadatos, sin contenido crudo. Todos requieren sesión y usan la empresa autenticada. Cada carga debe indicar una fuente activa de esa empresa; queda en estado `pending` para ETL. `npm run db:init` crea `DataImports` al actualizar desde E04. Las fuentes con importaciones asociadas no pueden darse de baja.
+
+Se agregó `multer` porque la API recibe archivos multipart. Limita CSV a 1 MiB en memoria; el Backend no transforma ni clasifica sus filas. Consultar `doc/api-contract.md` para los campos y respuestas.

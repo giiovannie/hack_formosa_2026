@@ -60,6 +60,12 @@ Toda entidad empresarial deberá poder relacionarse con la empresa correspondien
 
 # Entidades iniciales
 
+## BE E03 — DataImport
+
+`DataImport` representa una carga cruda pendiente de ETL. `id` INT PK, `companyId` INT FK Company, `sourceId` INT FK Source, todos NOT NULL; `kind` file/manual, `dataType` STRING(100) NOT NULL, `metadata` JSON NOT NULL (objeto, `{}` si falta), `originalFilename` STRING(255) NULL, `mimeType` STRING(100) NULL, `rawPayload` MEDIUMTEXT NOT NULL, `status` STRING(20) NOT NULL con valor inicial `pending`, más timestamps Sequelize. `rawPayload` conserva el CSV UTF-8 original o JSON serializado del registro manual para el procesamiento posterior; no se expone en las respuestas HTTP. La importación no se elimina en BE E03.
+
+Company 1:N DataImport y Source 1:N DataImport. FK RESTRICT para conservar trazabilidad. `Source` se bloquea y valida por tenant al registrar una carga; su baja lógica se rechaza si ya existe una importación asociada, también bajo bloqueo transaccional. No se crean modelos normalizados antes de ETL.
+
 ## BE E04 — Source
 
 Cada `Source` pertenece a una `Company` (Company 1:N Source), incluso cuando el tipo de fuente sea externa, para mantener la autorización y el aislamiento uniformes. Campos: `id` INT PK autoincremental; `companyId` INT NOT NULL FK; `name`, `origin`, `status` STRING NOT NULL; `type` STRING NOT NULL limitado a `internal`/`external`; `description` TEXT NULL; `sourceUpdatedAt` DATE NULL; `createdAt` y `updatedAt` de Sequelize. El estado es texto libre, sin catálogo en el MVP. La fuente usa `paranoid: true` e InnoDB, sin eliminación física en cascada. La relación Company→Source usa RESTRICT; se valida `companyId` desde autenticación. Al agregar importaciones, sus referencias a Source deben preservar trazabilidad y la baja de fuentes usadas debe rechazarse.

@@ -6,7 +6,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01/E02/E04 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01/E02/E03/E04 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -216,6 +216,65 @@ test('BE E01/E02/E04 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('DELETE', `/fuentes/${sourceA.id}`, undefined, cookieA)).status, 200);
     assert.equal((await request('GET', `/fuentes/${sourceA.id}`, undefined, cookieA)).status, 404);
     assert.ok((await models.SourceModel.findByPk(sourceA.id, { paranoid: false })).deletedAt);
+  });
+  let importSource;
+  let importId;
+  const uploadCsv = async (cookie, sourceId, filename, content, extra = {}) => {
+    const form = new FormData();
+    form.set('sourceId', String(sourceId));
+    form.set('dataType', 'sales');
+    form.set('metadata', JSON.stringify({ period: '2026-09', ...extra }));
+    if (content !== null) form.set('file', new Blob([content], { type: 'text/csv' }), filename);
+    const response = await fetch(`${base}/datos/importaciones`, { method: 'POST', headers: { Cookie: cookie }, body: form });
+    return { status: response.status, body: await response.json() };
+  };
+  await t.test('E03 accepts CSV and manual records as pending for same-company source', async () => {
+    const created = await request('POST', '/fuentes', sourceData, cookieA);
+    assert.equal(created.status, 201);
+    importSource = created.body.source;
+    const csv = await uploadCsv(cookieA, importSource.id, 'sales.csv', 'product,quantity\nA,2\n');
+    assert.equal(csv.status, 201, JSON.stringify(csv.body));
+    importId = csv.body.dataImport.id;
+    assert.equal(csv.body.dataImport.status, 'pending');
+    assert.equal(csv.body.dataImport.sourceId, importSource.id);
+    assert.equal(JSON.stringify(csv.body).includes('rawPayload'), false);
+    const stored = await models.DataImportModel.scope('withRawPayload').findByPk(importId);
+    assert.equal(stored.rawPayload, 'product,quantity\nA,2\n');
+    const manual = await request('POST', '/datos/registros', { sourceId: importSource.id, dataType: 'sales', record: { product: 'B', quantity: 3 } }, cookieA);
+    assert.equal(manual.status, 201);
+    assert.equal(manual.body.dataImport.kind, 'manual');
+    assert.equal(manual.body.dataImport.status, 'pending');
+    const read = await request('GET', `/datos/importaciones/${manual.body.dataImport.id}`, undefined, cookieA);
+    assert.equal(read.status, 200);
+    assert.equal(JSON.stringify(read.body).includes('rawPayload'), false);
+    const list = await request('GET', '/datos/importaciones?page=1&limit=1', undefined, cookieA);
+    assert.equal(list.body.pagination.total, 2);
+    assert.equal(list.body.dataImports.length, 1);
+    assert.equal(JSON.stringify(list.body).includes('rawPayload'), false);
+  });
+  await t.test('E03 rejects invalid uploads, wrong tenant and wrong source', async () => {
+    const count = await models.DataImportModel.count({ where: { companyId: companyA.body.company.id } });
+    assert.equal((await uploadCsv(cookieB, importSource.id, 'sales.csv', 'a,b\n1,2')).status, 404);
+    assert.equal((await uploadCsv(cookieA, 2147483647, 'sales.csv', 'a,b\n1,2')).status, 404);
+    assert.equal((await uploadCsv(cookieA, importSource.id, 'sales.txt', 'a,b\n1,2')).status, 400);
+    assert.equal((await uploadCsv(cookieA, importSource.id, 'empty.csv', '')).status, 400);
+    assert.equal((await uploadCsv(cookieA, importSource.id, 'bad.csv', new Uint8Array([0xff]))).status, 400);
+    assert.equal((await uploadCsv(cookieA, importSource.id, 'large.csv', 'a'.repeat(1024 * 1024 + 1))).status, 413);
+    assert.equal((await uploadCsv(cookieA, importSource.id, 'missing.csv', null)).status, 400);
+    assert.equal((await request('POST', '/datos/registros', { sourceId: importSource.id, dataType: 'sales', record: [] }, cookieA)).status, 400);
+    assert.equal((await request('POST', '/datos/registros', { sourceId: importSource.id, dataType: 'sales', record: {} }, cookieA)).status, 400);
+    assert.equal((await request('POST', '/datos/registros', { sourceId: importSource.id, dataType: 'sales', record: { x: 1 }, companyId: companyB.body.company.id }, cookieA)).status, 400);
+    assert.equal((await request('GET', '/datos/importaciones?companyId=999', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', `/datos/importaciones/${importId}`, undefined, cookieB)).status, 404);
+    assert.equal(await models.DataImportModel.count({ where: { companyId: companyA.body.company.id } }), count);
+  });
+  await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
+    assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);
+    assert.ok(await models.SourceModel.findByPk(importSource.id));
+    await models.SourceModel.destroy({ where: { id: importSource.id } });
+    assert.equal((await uploadCsv(cookieA, importSource.id, 'sales.csv', 'a,b\n1,2')).status, 404);
+    assert.equal((await request('POST', '/datos/registros', { sourceId: importSource.id, dataType: 'sales', record: { x: 1 } }, cookieA)).status, 404);
+    assert.equal((await request('GET', `/datos/importaciones/${importId}`, undefined, cookieA)).status, 200);
   });
   await t.test('last owner cannot be deleted or demoted', async () => {
     assert.equal((await request('DELETE', `/usuarios/${companyA.body.user.id}`, undefined, cookieA)).status, 409);
