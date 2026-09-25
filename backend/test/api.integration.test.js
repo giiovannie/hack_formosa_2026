@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E17 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E19 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -659,6 +659,30 @@ test('BE E01–E17 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('GET', path.replace('datos-argentina-series', 'datos-argentina-georef'), undefined, cookieA)).status, 409);
     assert.equal((await request('GET', path.replace('serie_oficial_1', 'bad,id'), undefined, cookieA)).status, 400);
     assert.equal((await request('GET', '/fuentes-externas/consultas', undefined, cookieA)).body.queries[0].queryType, 'historical_series');
+  });
+  await t.test('E19 records only evidenced threshold alerts and keeps their status tenant scoped', async () => {
+    const condition = { metric: 'count', operator: 'lt', threshold: '2', from: '2026-08-01', to: '2026-08-31', dataType: 'operations' };
+    const created = await request('POST', '/alertas/evaluar', condition, cookieA);
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    assert.equal(created.body.evaluation.evidence.value, 1);
+    assert.equal(created.body.evaluation.alert.status, 'active');
+    const alertId = created.body.evaluation.alert.id;
+    assert.equal((await request('GET', `/alertas/${alertId}`, undefined, cookieB)).status, 404);
+    assert.equal((await request('PATCH', `/alertas/${alertId}/reconocer`, {}, cookieB)).status, 404);
+    assert.equal((await request('GET', '/alertas', undefined, cookieB)).body.alerts.length, 0);
+    assert.equal((await request('GET', '/alertas?status=active', undefined, cookieA)).body.alerts.length, 1);
+    const acknowledged = await request('PATCH', `/alertas/${alertId}/reconocer`, {}, cookieA);
+    assert.equal(acknowledged.body.alert.status, 'acknowledged');
+    assert.equal((await request('GET', '/alertas?status=active', undefined, cookieA)).body.alerts.length, 0);
+    const missing = await request('POST', '/alertas/evaluar', { ...condition, from: '2026-07-01', to: '2026-07-31' }, cookieA);
+    assert.equal(missing.body.evaluation.status, 'insufficient_data');
+    assert.equal((await request('GET', '/alertas', undefined, cookieA)).body.alerts.length, 1);
+    const notTriggered = await request('POST', '/alertas/evaluar', { ...condition, operator: 'gt', threshold: '5' }, cookieA);
+    assert.equal(notTriggered.body.evaluation.status, 'not_triggered');
+    assert.equal((await request('POST', '/alertas/evaluar', condition, cookieB)).body.evaluation.status, 'insufficient_data');
+    assert.equal((await request('POST', '/alertas/evaluar', { ...condition, sourceId: 2147483647 }, cookieA)).status, 404);
+    assert.equal((await request('POST', '/alertas/evaluar', { ...condition, operator: 'unknown' }, cookieA)).status, 400);
+    assert.equal((await request('GET', '/alertas')).status, 401);
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);

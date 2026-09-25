@@ -6,6 +6,7 @@ import { defineDataImportModel } from './dataImport.model.js';
 import { defineProcessingRunModel } from './processingRun.model.js';
 import { defineProcessedRecordModel } from './processedRecord.model.js';
 import { defineExternalQueryModel } from './externalQuery.model.js';
+import { defineAlertModel } from './alert.model.js';
 
 export const initializeModels = (sequelize) => {
   const CompanyModel = defineCompanyModel(sequelize);
@@ -16,6 +17,7 @@ export const initializeModels = (sequelize) => {
   const ProcessingRunModel = defineProcessingRunModel(sequelize);
   const ProcessedRecordModel = defineProcessedRecordModel(sequelize);
   const ExternalQueryModel = defineExternalQueryModel(sequelize);
+  const AlertModel = defineAlertModel(sequelize);
   const relation = {
     foreignKey: { name: 'companyId', allowNull: false },
     onDelete: 'RESTRICT', onUpdate: 'CASCADE',
@@ -37,6 +39,10 @@ export const initializeModels = (sequelize) => {
   CompanyModel.hasMany(ProcessedRecordModel, { ...relation, as: 'processedRecords' });
   CompanyModel.hasMany(ExternalQueryModel, { ...relation, as: 'externalQueries' });
   ExternalQueryModel.belongsTo(CompanyModel, { ...relation, as: 'company' });
+  CompanyModel.hasMany(AlertModel, { ...relation, as: 'alerts' });
+  AlertModel.belongsTo(CompanyModel, { ...relation, as: 'company' });
+  UserModel.hasMany(AlertModel, { foreignKey: { name: 'userId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'alerts' });
+  AlertModel.belongsTo(UserModel, { foreignKey: { name: 'userId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'user' });
   UserModel.hasMany(ExternalQueryModel, { foreignKey: { name: 'userId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'externalQueries' });
   ExternalQueryModel.belongsTo(UserModel, { foreignKey: { name: 'userId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'user' });
   ProcessedRecordModel.belongsTo(CompanyModel, { ...relation, as: 'company' });
@@ -46,5 +52,5 @@ export const initializeModels = (sequelize) => {
   ProcessedRecordModel.belongsTo(DataImportModel, { foreignKey: { name: 'dataImportId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'dataImport' });
   ProcessingRunModel.hasMany(ProcessedRecordModel, { foreignKey: { name: 'processingRunId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'processedRecords' });
   ProcessedRecordModel.belongsTo(ProcessingRunModel, { foreignKey: { name: 'processingRunId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'processingRun' });
-  return { CompanyModel, UserModel, CompanyProfileModel, SourceModel, DataImportModel, ProcessingRunModel, ProcessedRecordModel, ExternalQueryModel };
+  return { CompanyModel, UserModel, CompanyProfileModel, SourceModel, DataImportModel, ProcessingRunModel, ProcessedRecordModel, ExternalQueryModel, AlertModel };
 };
