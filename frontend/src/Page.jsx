@@ -21,7 +21,6 @@ function LandingPage({ onAuthSuccess }) {
         <SimplicityBanner />
         <CtaSection />
       </main>
-      <Footer />
     </div></PageEntrance>
   )
 }
@@ -36,6 +35,7 @@ export default function Page() {
   return (
     <>
       {page}
+      <Footer showProductLinks={!isAuthenticated} />
       <ThemeToggle />
     </>
   )
