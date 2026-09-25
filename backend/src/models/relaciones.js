@@ -7,6 +7,8 @@ import { defineProcessingRunModel } from './processingRun.model.js';
 import { defineProcessedRecordModel } from './processedRecord.model.js';
 import { defineExternalQueryModel } from './externalQuery.model.js';
 import { defineAlertModel } from './alert.model.js';
+import { defineBackupModel } from './backup.model.js';
+import { defineRestoreEventModel } from './restoreEvent.model.js';
 
 export const initializeModels = (sequelize) => {
   const CompanyModel = defineCompanyModel(sequelize);
@@ -18,6 +20,8 @@ export const initializeModels = (sequelize) => {
   const ProcessedRecordModel = defineProcessedRecordModel(sequelize);
   const ExternalQueryModel = defineExternalQueryModel(sequelize);
   const AlertModel = defineAlertModel(sequelize);
+  const BackupModel = defineBackupModel(sequelize);
+  const RestoreEventModel = defineRestoreEventModel(sequelize);
   const relation = {
     foreignKey: { name: 'companyId', allowNull: false },
     onDelete: 'RESTRICT', onUpdate: 'CASCADE',
@@ -41,6 +45,14 @@ export const initializeModels = (sequelize) => {
   ExternalQueryModel.belongsTo(CompanyModel, { ...relation, as: 'company' });
   CompanyModel.hasMany(AlertModel, { ...relation, as: 'alerts' });
   AlertModel.belongsTo(CompanyModel, { ...relation, as: 'company' });
+  CompanyModel.hasMany(BackupModel, { ...relation, as: 'backups' });
+  BackupModel.belongsTo(CompanyModel, { ...relation, as: 'company' });
+  CompanyModel.hasMany(RestoreEventModel, { ...relation, as: 'restoreEvents' });
+  RestoreEventModel.belongsTo(CompanyModel, { ...relation, as: 'company' });
+  BackupModel.hasMany(RestoreEventModel, { foreignKey: { name: 'backupId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'restorations' });
+  RestoreEventModel.belongsTo(BackupModel, { foreignKey: { name: 'backupId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'backup' });
+  BackupModel.hasMany(RestoreEventModel, { foreignKey: { name: 'safetyBackupId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'safetyRestorations' });
+  RestoreEventModel.belongsTo(BackupModel, { foreignKey: { name: 'safetyBackupId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'safetyBackup' });
   UserModel.hasMany(AlertModel, { foreignKey: { name: 'userId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'alerts' });
   AlertModel.belongsTo(UserModel, { foreignKey: { name: 'userId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'user' });
   UserModel.hasMany(ExternalQueryModel, { foreignKey: { name: 'userId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'externalQueries' });
@@ -52,5 +64,5 @@ export const initializeModels = (sequelize) => {
   ProcessedRecordModel.belongsTo(DataImportModel, { foreignKey: { name: 'dataImportId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'dataImport' });
   ProcessingRunModel.hasMany(ProcessedRecordModel, { foreignKey: { name: 'processingRunId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'processedRecords' });
   ProcessedRecordModel.belongsTo(ProcessingRunModel, { foreignKey: { name: 'processingRunId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'processingRun' });
-  return { CompanyModel, UserModel, CompanyProfileModel, SourceModel, DataImportModel, ProcessingRunModel, ProcessedRecordModel, ExternalQueryModel, AlertModel };
+  return { CompanyModel, UserModel, CompanyProfileModel, SourceModel, DataImportModel, ProcessingRunModel, ProcessedRecordModel, ExternalQueryModel, AlertModel, BackupModel, RestoreEventModel };
 };

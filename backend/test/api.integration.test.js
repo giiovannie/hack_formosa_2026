@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { mkdtemp, readdir, readFile, writeFile, unlink, rmdir } from 'node:fs/promises';
 import mysql from 'mysql2/promise';
 import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E19 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E20 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -21,6 +23,7 @@ test('BE E01–E19 HTTP contracts and isolation on real MySQL', async (t) => {
   let created = false;
   let database;
   let server;
+  const backupDir = await mkdtemp(path.join(tmpdir(), 'formo-backup-test-'));
   t.after(async () => {
     try {
       if (server) await new Promise((resolve) => server.close(resolve));
@@ -28,7 +31,11 @@ test('BE E01–E19 HTTP contracts and isolation on real MySQL', async (t) => {
       if (created && /^be_e01_test_[a-f0-9]{20}$/.test(name)) {
         await admin.query(`DROP DATABASE \`${name}\``);
       }
-    } finally { await admin.end(); }
+    } finally {
+      await admin.end();
+      for (const file of await readdir(backupDir)) await unlink(path.join(backupDir, file));
+      await rmdir(backupDir);
+    }
   });
   await admin.query(`CREATE DATABASE \`${name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
   created = true;
@@ -53,7 +60,7 @@ test('BE E01–E19 HTTP contracts and isolation on real MySQL', async (t) => {
     return new Response(JSON.stringify({ provincias: [{ id: '34', nombre: 'Formosa' }] }),
       { status: 200, headers: { 'content-type': 'application/json' } });
   };
-  const app = createApp({ database, models, config, externalFetch });
+  const app = createApp({ database, models, config, externalFetch, backupDir });
   server = await new Promise((resolve) => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
   const base = `http://127.0.0.1:${server.address().port}/api/v1`;
   const request = async (method, path, data, cookie, origin) => {
@@ -683,6 +690,49 @@ test('BE E01–E19 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('POST', '/alertas/evaluar', { ...condition, sourceId: 2147483647 }, cookieA)).status, 404);
     assert.equal((await request('POST', '/alertas/evaluar', { ...condition, operator: 'unknown' }, cookieA)).status, 400);
     assert.equal((await request('GET', '/alertas')).status, 401);
+  });
+  await t.test('E20 backs up and replaces one tenant, preserving a pre-restore snapshot and audit', async () => {
+    const created = await request('POST', '/respaldos', {}, cookieA);
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const backupId = created.body.backup.id;
+    assert.equal(created.body.backup.fileName, undefined);
+    assert.equal((await request('POST', '/respaldos', {}, memberCookie)).status, 403);
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, cookieB)).status, 404);
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, memberCookie)).status, 403);
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, {}, cookieA)).status, 400);
+    const additional = await request('POST', '/fuentes', { ...sourceData, name: 'Posterior al respaldo' }, cookieA);
+    assert.equal(additional.status, 201);
+    const metadata = await models.BackupModel.findByPk(backupId);
+    const file = path.join(backupDir, metadata.fileName);
+    const original = await readFile(file, 'utf8');
+    const companyBSourceCount = await models.SourceModel.count({ where: { companyId: companyB.body.company.id } });
+    await writeFile(file, `${original} `);
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, cookieA)).status, 409);
+    assert.ok(await models.SourceModel.findByPk(additional.body.source.id));
+    await writeFile(file, original);
+    const invalidSnapshot = JSON.parse(original);
+    invalidSnapshot.tables.imports[0].sourceId = 2147483647;
+    const brokenPayload = JSON.stringify(invalidSnapshot);
+    await writeFile(file, brokenPayload);
+    await metadata.update({ sha256: createHash('sha256').update(brokenPayload).digest('hex') });
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, cookieA)).status, 500);
+    assert.ok(await models.SourceModel.findByPk(additional.body.source.id));
+    assert.equal(await models.BackupModel.count({ where: { companyId: companyA.body.company.id } }), 1);
+    assert.equal((await readdir(backupDir)).length, 1);
+    await writeFile(file, original);
+    await metadata.update({ sha256: createHash('sha256').update(original).digest('hex') });
+    const restored = await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, cookieA);
+    assert.equal(restored.status, 200, JSON.stringify(restored.body));
+    assert.equal(await models.SourceModel.findByPk(additional.body.source.id), null);
+    assert.ok(restored.body.restoration.safetyBackupId);
+    assert.equal((await request('GET', '/respaldos/restauraciones', undefined, cookieA)).body.restorations.length, 1);
+    assert.equal((await request('GET', '/respaldos/restauraciones', undefined, cookieB)).body.restorations.length, 0);
+    const safety = await request('POST', `/respaldos/${restored.body.restoration.safetyBackupId}/restaurar`, { confirm: true }, cookieA);
+    assert.equal(safety.status, 200, JSON.stringify(safety.body));
+    assert.ok(await models.SourceModel.findByPk(additional.body.source.id));
+    assert.equal(await models.SourceModel.count({ where: { companyId: companyB.body.company.id } }), companyBSourceCount);
+    assert.equal((await request('GET', '/respaldos', undefined, cookieB)).body.backups.length, 0);
+    assert.equal((await request('GET', '/respaldos')).status, 401);
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);
