@@ -13,7 +13,9 @@ export default {
           DEFAULT: '#F97316',
           light: '#EA580C',
           hover: '#FB923C',
-          blue: '#2563EB',
+          blue: '#183A51',
+          green: '#1D4D3A',
+          'green-hover': '#163E2F',
         },
         surface: {
           light: '#F8F9FA',
@@ -34,4 +36,3 @@ export default {
   },
   plugins: [],
 }
-
