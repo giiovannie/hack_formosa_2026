@@ -79,7 +79,7 @@ export default function DashboardPage() {
   }
   const IntegratedView = integratedViews[activeView]
   if (IntegratedView) {
-    return <PageEntrance key={activeView}><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><IntegratedView /></div></div></PageEntrance>
+    return <PageEntrance key={activeView}><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden [&_main>div>div]:animate-[section-rise_.55s_cubic-bezier(.22,1,.36,1)_both] [&_main>div>div:nth-child(1)]:[animation-delay:.08s] [&_main>div>div:nth-child(2)]:[animation-delay:.18s] [&_main>div>div:nth-child(3)]:[animation-delay:.28s] [&_main>div>div:nth-child(4)]:[animation-delay:.38s] [&_main>div>div:nth-child(5)]:[animation-delay:.48s] [&_main>div>section]:animate-[section-rise_.55s_cubic-bezier(.22,1,.36,1)_both] [&_main>div>section:nth-of-type(1)]:[animation-delay:.12s] [&_main>div>section:nth-of-type(2)]:[animation-delay:.24s] [&_main>div>section:nth-of-type(3)]:[animation-delay:.36s] [&_main>div>section:nth-of-type(4)]:[animation-delay:.48s] [&_main>div>section:nth-of-type(5)]:[animation-delay:.6s]"><IntegratedView /></div></div></PageEntrance>
   }
 
   return (
