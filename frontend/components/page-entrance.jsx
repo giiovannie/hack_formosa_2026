@@ -1,11 +1,11 @@
-import { useLayoutEffect } from "react"
+import { useEffect } from "react"
 import { motion, useAnimate, useReducedMotion } from "framer-motion"
 
 export default function PageEntrance({ children }) {
   const [scope, animate] = useAnimate()
   const reduceMotion = useReducedMotion()
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!scope.current?.querySelector("[data-page-enter]")) return undefined
 
     const controls = animate(

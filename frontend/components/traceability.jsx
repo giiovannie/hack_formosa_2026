@@ -4,21 +4,6 @@ import { useState } from 'react'
 import { Activity, ArrowLeft, CheckCircle2, CircleHelp, Clock3, Database, ExternalLink, FileCheck2, Globe2, Link2, ShieldCheck, XCircle } from 'lucide-react'
 import AnimatedNumber from '@/components/animated-number'
 
-const record = {
-  id: 'IMP-2025-00384',
-  name: 'Inventario sucursales',
-  source: 'Archivo CSV',
-  origin: 'Carga manual autorizada',
-  importedAt: '12 mar 2025, 16:05',
-  status: 'Procesado',
-  validation: 'Validado con observaciones',
-  file: 'inventario_sucursales_marzo.csv',
-  rows: '12.480 registros',
-  size: '2,8 MB',
-  checksum: 'sha256: 84a9...c21d',
-  owner: 'Martina López',
-}
-
 function Logo() {
   return <div className="flex items-center gap-2.5"><div className="grid size-8 place-items-center rounded-lg bg-[#f4511e] shadow-[0_0_18px_rgba(244,81,30,.25)]"><span className="text-lg text-white">✣</span></div><span className="text-[15px] font-bold tracking-tight text-[#f3f5f7]">Stockflow</span></div>
 }
@@ -32,9 +17,12 @@ function DetailRow({ label, value, mono = false }) {
   return <div className="flex flex-col gap-1 border-b border-[#202b39] py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"><dt className="text-xs text-[#8490a3]">{label}</dt><dd className={`text-sm text-[#e7edf4] sm:text-right ${mono ? 'font-mono text-xs text-[#a9b7c8]' : ''}`}>{value}</dd></div>
 }
 
-export default function Traceability({ embedded = false }) {
+export default function Traceability({ embedded = false, dataset }) {
   const [showOrigin, setShowOrigin] = useState(false)
   const [message, setMessage] = useState('')
+  const record = dataset ? { id: `IMP-${dataset.file?.name || "CSV"}`, name: dataset.file?.name || "Archivo cargado", source: "Archivo CSV local", origin: "Carga manual en el navegador", importedAt: "Sesión actual", status: "Procesado", validation: `${dataset.quality}% de filas válidas`, file: dataset.file?.name || "Sin archivo", rows: `${dataset.total} registros`, size: dataset.file?.size || "-", checksum: "No se persiste fuera de esta sesión", owner: "Usuario local" } : null
+
+  if (!record) return <main className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><div className="mx-auto max-w-[1180px] px-5 py-16 lg:px-8"><p className="mb-2 text-xs font-medium uppercase tracking-[.18em] text-[#ff792c]">Trazabilidad</p><h1 className="text-2xl font-bold tracking-tight sm:text-[30px]">Todavía no hay una importación</h1><p className="mt-2 text-sm text-[#8e9aac]">La trazabilidad se habilita después de procesar un CSV.</p></div></main>
 
   const handleBack = () => setMessage('Volviendo a Fuentes de información…')
   const handleRefresh = () => setMessage('Validación actualizada y persistida correctamente.')

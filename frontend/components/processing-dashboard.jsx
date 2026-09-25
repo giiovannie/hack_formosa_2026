@@ -21,30 +21,43 @@ const navItems = [
   { id: "settings", label: "Configuración", icon: Settings },
 ]
 
-export const processingSteps = [
-  { label: "Extracción", caption: "Archivos y planillas cargadas", tag: "14/14" },
-  { label: "Validación", caption: "Revisión de filas y columnas", tag: "96%" },
-  { label: "Limpieza", caption: "Duplicados y errores corregidos", tag: "1.240" },
-  { label: "Normalización", caption: "Formatos y unidades estandarizadas", tag: "84%" },
-  { label: "Clasificación", caption: "Categorías y reglas aplicadas", tag: "640" },
-  { label: "Carga", caption: "Resultado listo para análisis", tag: "Listo" },
-]
-
-export default function ProcessingDashboard({ embedded = false }) {
+export default function ProcessingDashboard({ embedded = false, dataset }) {
   const [activeView, setActiveView] = useState("processing")
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [currentStep, setCurrentStep] = useState(0)
+  const acceptedRows = dataset?.rows.filter((row) => row.status === "valid") ?? []
+  const identifiedProducts = new Set(acceptedRows.map((row) => row.product).filter(Boolean)).size
+  const normalizedRows = acceptedRows.filter((row) => row.numericAmount > 0 || row.numericQuantity > 0).length
+
+  const startProcessing = () => {
+    if (!dataset || isProcessing) return
+    setProgress(0)
+    setCurrentStep(0)
+    setIsProcessing(true)
+  }
+
+  const processingSteps = [
+    { label: "Extracción", caption: dataset?.file?.name || "Archivo seleccionado en el navegador", tag: dataset ? `${dataset.total} filas` : "-" },
+    { label: "Validación", caption: "Registros aceptados y con observaciones", tag: dataset ? `${dataset.valid} aceptados · ${dataset.rejected} rechazados` : "-" },
+    { label: "Limpieza", caption: "Filas con errores separadas para revisión", tag: dataset ? `${dataset.valid} listas · ${dataset.rejected} observadas` : "-" },
+    { label: "Normalización", caption: "Importes y cantidades preparados", tag: dataset ? `${normalizedRows} filas con valores numéricos` : "-" },
+    { label: "Clasificación", caption: "Productos únicos detectados en el archivo", tag: dataset ? `${identifiedProducts} productos` : "-" },
+    { label: "Carga", caption: "Registros aceptados disponibles para análisis", tag: dataset ? `${acceptedRows.length} registros` : "-" },
+  ]
+  const stepCount = processingSteps.length
+  const completed = progress >= 100
+  const activeStepLabel = processingSteps[Math.min(currentStep, stepCount - 1)]?.label ?? "Extracción"
 
   useEffect(() => {
     if (!isProcessing) return undefined
 
     const timer = window.setInterval(() => {
       setProgress((previous) => {
-        const nextValue = Math.min(previous + 8, 100)
+        const nextValue = Math.min(previous + 100 / (stepCount * 4), 100)
         const nextStep = Math.min(
-          Math.floor((nextValue / 100) * processingSteps.length),
-          processingSteps.length - 1,
+          Math.floor((nextValue / 100) * stepCount),
+          stepCount - 1,
         )
 
         setCurrentStep(nextStep)
@@ -56,13 +69,10 @@ export default function ProcessingDashboard({ embedded = false }) {
 
         return nextValue
       })
-    }, 420)
+    }, 180)
 
     return () => window.clearInterval(timer)
-  }, [isProcessing])
-
-  const completed = progress >= 100
-  const activeStepLabel = processingSteps[Math.min(currentStep, processingSteps.length - 1)]?.label ?? "Extracción"
+  }, [isProcessing, stepCount])
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#1E293B] dark:bg-[#090d15] dark:text-[#f3f5f7]">
@@ -140,14 +150,14 @@ export default function ProcessingDashboard({ embedded = false }) {
               <div>
                 <p className="text-sm font-medium text-[#64748B] dark:text-[#8490a3]">Estado actual</p>
                 <h2 className="mt-1 text-lg font-semibold text-[#1E293B] dark:text-[#f3f5f7]">
-                  {completed ? "Carga completada" : activeStepLabel}
+                  {!dataset ? "Esperando datos" : completed ? "Carga completada" : progress === 0 && !isProcessing ? "Listo para procesar" : activeStepLabel}
                 </h2>
               </div>
 
               <button
                 type="button"
-                onClick={() => !isProcessing && setIsProcessing(true)}
-                disabled={isProcessing}
+                onClick={startProcessing}
+                disabled={isProcessing || !dataset}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-blue px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-80 dark:bg-[#ff6b19] dark:text-white dark:shadow-none dark:hover:bg-[#ff7c31]"
               >
                 {isProcessing ? (
@@ -157,7 +167,7 @@ export default function ProcessingDashboard({ embedded = false }) {
                   </>
                 ) : (
                   <>
-                    {completed ? "Reprocesar" : "Iniciar procesamiento"}
+                    {!dataset ? "Esperando datos" : completed ? "Reprocesar" : "Iniciar procesamiento"}
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
@@ -185,7 +195,7 @@ export default function ProcessingDashboard({ embedded = false }) {
             />
           </section>
 
-          <ProcessingSummary completed={completed} />
+          <ProcessingSummary completed={completed} dataset={dataset} />
         </div>
       </main>
     </div>
