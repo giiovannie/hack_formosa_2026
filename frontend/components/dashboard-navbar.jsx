@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState } from "react"
-import { Bell, ChevronDown, FileCheck2, GitBranch, LayoutDashboard, Settings2, Upload } from "lucide-react"
+import { Activity, Bell, ChevronDown, FileCheck2, GitBranch, LayoutDashboard, LineChart, Settings2, Upload, Database } from "lucide-react"
 
 const navItems = [
   { id: "data-entry", label: "Carga de datos", icon: Upload },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "data-quality", label: "Calidad de datos", icon: FileCheck2 },
   { id: "traceability", label: "Trazabilidad", icon: GitBranch },
+  { id: "alerts", label: "Alertas", icon: Bell },
+  { id: "contextualization", label: "Contexto", icon: Activity },
+  { id: "external-sources", label: "Fuentes", icon: Database },
+  { id: "productivity", label: "Productividad", icon: LayoutDashboard },
+  { id: "trends", label: "Tendencias", icon: LineChart },
 ]
 
 export default function DashboardNavbar({ activeView, onNavigate }) {

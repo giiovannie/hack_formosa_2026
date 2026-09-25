@@ -10,6 +10,11 @@ import { dashboardWidgets } from "@/components/dashboard-data"
 import CompanyConfiguration from "@/components/Profile-and-empresarial-configuration"
 import Traceability from "@/components/traceability"
 import PageEntrance from "@/components/page-entrance"
+import Alerts from "@/components/alerts"
+import Contextualization from "@/components/contextualization"
+import ExternalSources from "@/components/external-sources"
+import Productivity from "@/components/productivity"
+import TrendsAndEstimates from "@/components/trends-and-estimates"
 
 const riseVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -63,6 +68,18 @@ export default function DashboardPage() {
 
   if (activeView === "settings") {
     return <PageEntrance key={activeView}><div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0F17]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div data-page-enter=""><CompanyConfiguration embedded /></div></div></PageEntrance>
+  }
+
+  const integratedViews = {
+    alerts: Alerts,
+    contextualization: Contextualization,
+    "external-sources": ExternalSources,
+    productivity: Productivity,
+    trends: TrendsAndEstimates,
+  }
+  const IntegratedView = integratedViews[activeView]
+  if (IntegratedView) {
+    return <PageEntrance key={activeView}><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><IntegratedView /></div></div></PageEntrance>
   }
 
   return (
