@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E14 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E15 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -223,10 +223,10 @@ test('BE E01–E14 HTTP contracts and isolation on real MySQL', async (t) => {
   let importId;
   let tracedRecordId;
   let traceImportId;
-  const uploadCsv = async (cookie, sourceId, filename, content, extra = {}) => {
+  const uploadCsv = async (cookie, sourceId, filename, content, extra = {}, dataType = 'sales') => {
     const form = new FormData();
     form.set('sourceId', String(sourceId));
-    form.set('dataType', 'sales');
+    form.set('dataType', dataType);
     form.set('metadata', JSON.stringify({ period: '2026-09', ...extra }));
     if (content !== null) form.set('file', new Blob([content], { type: 'text/csv' }), filename);
     const response = await fetch(`${base}/datos/importaciones`, { method: 'POST', headers: { Cookie: cookie }, body: form });
@@ -572,6 +572,36 @@ test('BE E01–E14 HTTP contracts and isolation on real MySQL', async (t) => {
     const before = await models.ProcessedRecordModel.count({ where: { companyId: companyA.body.company.id } });
     await request('GET', path, undefined, cookieA);
     assert.equal(await models.ProcessedRecordModel.count({ where: { companyId: companyA.body.company.id } }), before);
+  });
+  await t.test('E15 reports descriptive operations by period and area without scoring people', async () => {
+    const csv = await uploadCsv(cookieA, importSource.id, 'operations.csv',
+      'area,employee,operation\nNorte,Ana,sale\nNorte,Ana,return\nSur,Beto,production\n', {}, 'operations');
+    assert.equal(csv.status, 201);
+    const id = csv.body.dataImport.id;
+    assert.equal((await request('POST', `/etl/procesar/${id}`, undefined, cookieA)).body.process.status, 'completed');
+    assert.equal((await request('POST', `/calidad/${id}/validar`, {}, cookieA)).body.quality.validRecords, 3);
+    assert.equal((await request('POST', `/datos-procesados/importaciones/${id}`, undefined, cookieA)).body.persistedRecords, 3);
+    const rows = await models.ProcessedRecordModel.findAll({ where: { dataImportId: id }, order: [['id', 'ASC']] });
+    await models.ProcessedRecordModel.update({ createdAt: new Date('2026-08-15T12:00:00.000Z') }, { where: { id: rows[0].id } });
+    await models.ProcessedRecordModel.update({ createdAt: new Date('2026-09-15T12:00:00.000Z') }, { where: { id: rows[1].id } });
+    await models.ProcessedRecordModel.update({ createdAt: new Date('2026-09-16T12:00:00.000Z') }, { where: { id: rows[2].id } });
+    const path = '/productividad?from=2026-08-01&to=2026-09-30&interval=month&dataType=operations&areaField=area&operationField=operation';
+    const result = await request('GET', path, undefined, cookieA);
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(result.body.indicators.interpretation, 'descriptive');
+    assert.equal(result.body.indicators.totalOperations, 3);
+    assert.equal(result.body.indicators.averagePerObservedPeriod, 1.5);
+    assert.deepEqual(result.body.indicators.periods, [{ period: '2026-08', count: 1 }, { period: '2026-09', count: 2 }]);
+    assert.deepEqual(result.body.indicators.byArea, [{ area: 'Norte', count: 2 }, { area: 'Sur', count: 1 }]);
+    assert.equal(result.body.indicators.byOperation.length, 3);
+    const employee = await request('GET', `${path}&employeeField=employee&employee=Ana`, undefined, cookieA);
+    assert.equal(employee.body.indicators.totalOperations, 2);
+    assert.equal((await request('GET', `${path}&area=Sur`, undefined, cookieA)).body.indicators.totalOperations, 1);
+    assert.equal((await request('GET', path, undefined, cookieB)).body.indicators.totalOperations, 0);
+    assert.equal((await request('GET', path)).status, 401);
+    assert.equal((await request('GET', '/productividad?from=2026-08-01&to=2026-09-30&interval=month&dataType=operations&area=Sur', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/productividad?from=2026-08-01&to=2026-09-30&interval=month&dataType=operations&employee=Ana', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/productividad?from=2026-08-01&to=2026-09-30&interval=month', undefined, cookieA)).status, 400);
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);

@@ -36,6 +36,8 @@ import { createPatternRouter } from './routes/pattern.routes.js';
 import { createPatternControllers } from './controllers/pattern.controller.js';
 import { createTrendRouter } from './routes/trend.routes.js';
 import { createTrendControllers } from './controllers/trend.controller.js';
+import { createProductivityRouter } from './routes/productivity.routes.js';
+import { createProductivityControllers } from './controllers/productivity.controller.js';
 
 export const createApp = ({ database, models, config }) => {
   if (!config.FRONTEND_URL || !/^https?:$/.test(new URL(config.FRONTEND_URL).protocol)) {
@@ -72,6 +74,7 @@ export const createApp = ({ database, models, config }) => {
   app.use('/api/v1/historicos', createHistoryRouter(createHistoryControllers(database, models), auth));
   app.use('/api/v1/patrones', createPatternRouter(createPatternControllers(database, models), auth));
   app.use('/api/v1/tendencias', createTrendRouter(createTrendControllers(database, models), auth));
+  app.use('/api/v1/productividad', createProductivityRouter(createProductivityControllers(models), auth));
   app.use((req, res) => res.status(404).json({ message: 'Recurso no encontrado' }));
   app.use(errorMiddleware);
   return app;

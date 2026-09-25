@@ -1243,8 +1243,6 @@ y detectar inconsistencias.
 
 ## BE E14 — Tendencias y estimaciones
 
-`GET /api/v1/tendencias?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` requiere sesión y reutiliza E12: series de registros procesados, filtros por empresa/fuente/tipo, período UTC y máximo 120 intervalos. `metric` admite las métricas E11; las numéricas requieren `field`.
-
 Respuesta `200`: `{ message, analysis: { metric, field, from, to, interval, filters, status, trend, estimate, evidence } }`. Con al menos tres puntos históricos seguros, `status` es `estimated`; `trend` contiene `direction` (`increasing`, `decreasing`, `stable`), `slopePerInterval` y `method: "least_squares_linear"`. `estimate` contiene `kind: "estimate"`, el siguiente período, `value` y el método. `evidence` conserva los puntos históricos reales usados. La extrapolación lineal es descriptiva y no garantiza resultados futuros. Las estimaciones de conteos negativos se limitan a cero. Los cálculos usan números finitos de magnitud hasta 10¹²; fuera de ese rango se devuelve `not_estimable` sin estimación. Con menos de tres puntos se devuelve `insufficient_data` sin tendencia ni estimación.
 
 La consulta no modifica históricos. Parámetros inválidos responden `400`; fuente ajena o inexistente, `404`.
@@ -1405,3 +1403,14 @@ mínimo dato necesario
 ```
 
 `API-CONTRACT.md` deberá contener solamente la información necesaria para que los distintos dominios compartan una misma estructura sin reinterpretaciones.
+
+---
+
+## BE E15 — Productividad
+
+`GET /api/v1/productividad?from=&to=&interval=day|month|year&dataType=&sourceId=&areaField=&area=&operationField=&employeeField=&employee=` requiere sesión. `from`, `to`, `interval` y `dataType` son obligatorios. `areaField`, `operationField` y `employeeField` indican los nombres de columnas de los registros procesados; `area` requiere `areaField`, y `employee` y `employeeField` deben enviarse juntos. La empresa se obtiene de la sesión. `sourceId` y `dataType` restringen los registros de esa empresa. Las fechas corresponden a la persistencia UTC de cada registro.
+
+Respuesta `200`: `{ message, indicators: { dataType, from, to, interval, filters, totalOperations, averagePerObservedPeriod, periods, byArea, byOperation, missingArea, missingOperation, interpretation: "descriptive" } }`. `periods` contiene `{ period, count }` por intervalo observado; `byArea` y `byOperation` contienen recuentos por valor textual. El promedio usa únicamente períodos con registros y es `null` si no hay ninguno. Los campos ausentes se contabilizan por separado. Es un indicador descriptivo de operaciones registradas, sin puntuación ni clasificación de empleados y sin inferir un esquema de negocio. Filtros inválidos responden `400`; una fuente inexistente o ajena, `404`.
+
+
+`GET /api/v1/tendencias?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` requiere sesión y reutiliza E12: series de registros procesados, filtros por empresa/fuente/tipo, período UTC y máximo 120 intervalos. `metric` admite las métricas E11; las numéricas requieren `field`.
