@@ -131,6 +131,64 @@ p {
   margin: 0;
 }
 
+/* Las vistas de carga, calidad y configuración aún usan una paleta oscura fija. */
+html:not(.dark) main[class*="bg-[#090d15]"] {
+  background-color: #f8f9fa !important;
+  color: #1e293b !important;
+}
+
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="bg-[#0a0f18]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="bg-[#0f1621]"] {
+  background-color: #fff !important;
+}
+
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="bg-[#121a26]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="bg-[#0b111b]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="bg-[#151c28]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="bg-[#151f2d]"] {
+  background-color: #f1f5f9 !important;
+}
+
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="border-[#202b39]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="border-[#253142]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="border-[#293546]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="border-[#2c3747]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="border-[#304052]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="border-[#39485c]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="border-[#405066]"] {
+  border-color: #e2e8f0 !important;
+}
+
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#f3f5f7]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#f7f8fa]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#fff5ef]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#f2d0ad]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#e8edf3]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#edf1f5]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#e4e9ef]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#e5eaf0]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#dce1e8]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#dbe2ea]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#dbe4ed]"] {
+  color: #1e293b !important;
+}
+
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#aeb8c7]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#b7c1ce]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#b8c1ce]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#b8c3d0]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#cbd4df]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#8490a3]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#8792a4]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#8e9aac]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#8f9bac]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#7e8a9e]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#718096]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#657287]"],
+html:not(.dark) main[class*="bg-[#090d15]"] [class*="text-[#617086]"] {
+  color: #64748b !important;
+}
+
 code,
 .counter {
   font-family: var(--mono);
