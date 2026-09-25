@@ -10,13 +10,14 @@ const date = (field) => query(field).custom((value) => {
 });
 const metric = [query('metric').isIn(['count', 'sum', 'average', 'min', 'max']),
   query('field').optional().isString().trim().notEmpty().isLength({ max: 100 })];
+export const historicalSeriesValidators = [date('from'), date('to'), query('interval').isIn(['day', 'month', 'year']),
+  metric, processedRecordFilterValidators];
 
 export const createHistoryRouter = (controllers, auth) => {
   const router = Router();
   router.use(auth);
   router.get('/comparar', date('fromA'), date('toA'), date('fromB'), date('toB'),
     metric, processedRecordFilterValidators, validate, controllers.compare);
-  router.get('/serie', date('from'), date('to'), query('interval').isIn(['day', 'month', 'year']),
-    metric, processedRecordFilterValidators, validate, controllers.series);
+  router.get('/serie', historicalSeriesValidators, validate, controllers.series);
   return router;
 };

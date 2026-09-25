@@ -40,6 +40,8 @@ Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa ta
 Se agregó `multer` porque la API recibe archivos multipart. Limita CSV a 1 MiB en memoria; el Backend no transforma ni clasifica sus filas. Consultar `doc/api-contract.md` para los campos y respuestas.
 # ETL (BE E05)
 
+BE E13 analiza recurrencias exactas en series históricas con `/api/v1/patrones`. Exige al menos tres períodos con datos y adjunta los períodos que respaldan cada recurrencia; no crea predicciones ni modifica históricos.
+
 BE E12 compara dos períodos y genera series diarias, mensuales o anuales en `/api/v1/historicos`, reutilizando las métricas E11 sobre la fecha de persistencia UTC. Las consultas no modifican históricos y omiten intervalos sin datos.
 
 BE E11 ofrece métricas configurables en `/api/v1/metricas` sobre registros procesados. `count` cuenta registros; `sum`, `average`, `min` y `max` requieren una columna numérica explícita y devuelven cadenas decimales, con cantidad de valores omitidos.

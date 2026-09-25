@@ -1241,6 +1241,16 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E13 — Detección de patrones
+
+`GET /api/v1/patrones?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` requiere sesión y reutiliza los filtros, métricas y períodos UTC de E12 sobre registros procesados de la empresa. Acepta como máximo 120 intervalos.
+
+Respuesta `200`: `{ message, analysis: { metric, field, interval, from, to, filters, status, observedPeriods, patterns } }`. `status` es `insufficient_data` cuando hay menos de tres intervalos con datos, o `analyzed`. En el MVP solo se identifica `repeated_value`: el mismo valor exacto de la métrica observado en tres o más intervalos con datos. Cada patrón incluye `value`, `occurrences` y `evidence` con `period`, `value` e `includedRecords`. Una lista vacía de patrones significa que no se observó esa recurrencia; no implica ausencia de otros comportamientos. El resultado es una observación descriptiva, no una predicción ni una inferencia causal.
+
+Parámetros inválidos responden `400`; fuente ajena o inexistente, `404`. El análisis no modifica históricos.
+
+---
+
 ## BE E12 — Históricos y comparaciones
 
 Las consultas requieren sesión, usan `companyId` autenticado y reutilizan las métricas configurables de E11 sobre `ProcessedRecord`. Los períodos se aplican a la fecha de persistencia UTC, con límites inclusivos `AAAA-MM-DD`. `dataType` y `sourceId` son filtros opcionales. `metric` admite `count`, `sum`, `average`, `min`, `max`; `field` se requiere para métricas numéricas y se prohíbe para `count`.

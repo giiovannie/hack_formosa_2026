@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E12 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E13 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -521,6 +521,33 @@ test('BE E01–E12 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('GET', '/historicos/comparar?metric=count&fromA=2026-08-31&toA=2026-08-01&fromB=2026-09-01&toB=2026-09-30', undefined, cookieA)).status, 400);
     assert.equal((await request('GET', '/historicos/serie?metric=count&interval=month&from=2026-08-01&to=2026-09-30')).status, 401);
     assert.equal((await models.ProcessedRecordModel.findByPk(tracedRecordId)).createdAt.toISOString(), '2026-08-15T12:00:00.000Z');
+  });
+  await t.test('E13 reports observed recurrence with evidence or insufficient history', async () => {
+    const records = await models.ProcessedRecordModel.findAll({ where: { companyId: companyA.body.company.id }, order: [['id', 'ASC']] });
+    assert.equal(records.length, 4);
+    for (const [index, record] of records.entries()) {
+      await models.ProcessedRecordModel.update({ createdAt: new Date(`2026-${String(8 + index).padStart(2, '0')}-15T12:00:00.000Z`) },
+        { where: { id: record.id } });
+    }
+    const path = '/patrones?metric=count&interval=month&from=2026-08-01&to=2026-11-30';
+    const result = await request('GET', path, undefined, cookieA);
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(result.body.analysis.status, 'analyzed');
+    assert.equal(result.body.analysis.observedPeriods, 4);
+    assert.equal(result.body.analysis.patterns.length, 1);
+    assert.equal(result.body.analysis.patterns[0].occurrences, 4);
+    assert.deepEqual(result.body.analysis.patterns[0].evidence.map(({ period, value }) => ({ period, value })), [
+      { period: '2026-08', value: 1 }, { period: '2026-09', value: 1 },
+      { period: '2026-10', value: 1 }, { period: '2026-11', value: 1 },
+    ]);
+    const limited = await request('GET', '/patrones?metric=count&interval=month&from=2026-08-01&to=2026-09-30', undefined, cookieA);
+    assert.equal(limited.body.analysis.status, 'insufficient_data');
+    assert.deepEqual(limited.body.analysis.patterns, []);
+    assert.equal((await request('GET', path, undefined, cookieB)).body.analysis.status, 'insufficient_data');
+    assert.equal((await request('GET', path)).status, 401);
+    assert.equal((await request('GET', '/patrones?metric=count&interval=day&from=2026-01-01&to=2026-05-01', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/patrones?metric=sum&interval=month&from=2026-08-01&to=2026-11-30', undefined, cookieA)).status, 400);
+    assert.equal((await models.ProcessedRecordModel.findByPk(records[0].id)).createdAt.toISOString(), '2026-08-15T12:00:00.000Z');
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);
