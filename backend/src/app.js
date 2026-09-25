@@ -18,6 +18,8 @@ import { createDataImportRouter } from './routes/dataImport.routes.js';
 import { createDataImportControllers } from './controllers/dataImport.controller.js';
 import { createEtlRouter } from './routes/etl.routes.js';
 import { createEtlControllers } from './controllers/etl.controller.js';
+import { createQualityRouter } from './routes/quality.routes.js';
+import { createQualityControllers } from './controllers/quality.controller.js';
 
 export const createApp = ({ database, models, config }) => {
   if (!config.FRONTEND_URL || !/^https?:$/.test(new URL(config.FRONTEND_URL).protocol)) {
@@ -45,6 +47,7 @@ export const createApp = ({ database, models, config }) => {
   app.use('/api/v1/fuentes', createSourceRouter(createSourceControllers(database, models), auth));
   app.use('/api/v1/datos', createDataImportRouter(createDataImportControllers(database, models), auth));
   app.use('/api/v1/etl', createEtlRouter(createEtlControllers(database, models, config), auth));
+  app.use('/api/v1/calidad', createQualityRouter(createQualityControllers(database, models), auth));
   app.use((req, res) => res.status(404).json({ message: 'Recurso no encontrado' }));
   app.use(errorMiddleware);
   return app;

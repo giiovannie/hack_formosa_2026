@@ -40,4 +40,6 @@ Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa ta
 Se agregó `multer` porque la API recibe archivos multipart. Limita CSV a 1 MiB en memoria; el Backend no transforma ni clasifica sus filas. Consultar `doc/api-contract.md` para los campos y respuestas.
 # ETL (BE E05)
 
+La calidad BE E06 se calcula sobre la última ejecución ETL completada. Las reglas por columna se envían a `POST /api/v1/calidad/:importacionId/validar`; las correcciones quedan en el resultado del proceso, sin sobrescribir el dato original.
+
 Instalá las dependencias Python con `python -m venv .venv` y `.venv/Scripts/python -m pip install -r requirements.txt` en Windows (en Unix, `.venv/bin/python`). Configurá `PYTHON_EXECUTABLE` con la ruta del ejecutable del entorno; `ETL_SCRIPT_PATH` es opcional y por defecto apunta a `etl/process.py`. El servidor no crea tablas automáticamente: aplicá la inicialización de base de datos del proyecto antes de iniciar.

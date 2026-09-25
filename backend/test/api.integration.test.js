@@ -307,6 +307,33 @@ test('BE E01/E02/E03/E04 HTTP contracts and isolation on real MySQL', async (t) 
     assert.equal(manualRun.body.process.status, 'completed');
     assert.equal((await models.ProcessingRunModel.findByPk(manualRun.body.process.id)).result.accepted[0].normalized.product, 'C');
   });
+  await t.test('E06 validates quality, pages errors, corrects records and isolates tenants', async () => {
+    const csv = await uploadCsv(cookieA, importSource.id, 'quality-e06.csv', 'date,amount,count\n2026-02-30,1.234,x\n2026-02-28,12.50,2\n2026-02-28,12.50,2\n, ,\n');
+    assert.equal(csv.status, 201);
+    const id = csv.body.dataImport.id;
+    assert.equal((await request('POST', `/etl/procesar/${id}`, undefined, cookieA)).body.process.status, 'completed');
+    assert.equal((await request('GET', `/calidad/${id}`, undefined, cookieA)).status, 404);
+    assert.equal((await request('POST', `/calidad/${id}/validar`, { rules: { nonexistent: 'date' } }, cookieA)).status, 400);
+    const validated = await request('POST', `/calidad/${id}/validar`, { rules: { date: 'date', amount: 'money', count: 'integer' } }, cookieA);
+    assert.equal(validated.status, 200, JSON.stringify(validated.body));
+    assert.equal(validated.body.quality.totalProcessed, 4);
+    assert.equal(validated.body.quality.validRecords, 1);
+    assert.equal(validated.body.quality.duplicates, 1);
+    assert.equal(validated.body.quality.incompleteRecords, 1);
+    assert.equal((await request('GET', `/calidad/${id}`, undefined, cookieB)).status, 404);
+    assert.equal((await request('POST', `/calidad/${id}/validar`, {}, cookieB)).status, 404);
+    assert.equal((await request('GET', `/calidad/${id}/errores?page=1&limit=2`, undefined, cookieA)).body.errors.length, 2);
+    assert.equal((await request('GET', `/calidad/${id}/errores?limit=101`, undefined, cookieA)).status, 400);
+    assert.equal((await request('PUT', `/calidad/${id}/registros/1`, { record: { date: '2026-02-27', amount: '1.23', count: '1' } }, cookieB)).status, 404);
+    assert.equal((await request('PUT', `/calidad/${id}/registros/1`, { record: { amount: '1.23' } }, cookieA)).status, 400);
+    assert.equal((await request('PUT', `/calidad/${id}/registros/2`, { record: { date: '2026-02-27', amount: '1.23', count: '1' } }, cookieA)).status, 409);
+    const fixed = await request('PUT', `/calidad/${id}/registros/1`, { record: { date: '2026-02-27', amount: '1.23', count: '1' } }, cookieA);
+    assert.equal(fixed.status, 200, JSON.stringify(fixed.body));
+    assert.equal(fixed.body.quality.validRecords, 2);
+    const stored = await models.ProcessingRunModel.findByPk(fixed.body.processId);
+    assert.equal(stored.result.accepted[0].original.date, '2026-02-30');
+    assert.equal(stored.result.corrections['1'].date, '2026-02-27');
+  });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);
     assert.ok(await models.SourceModel.findByPk(importSource.id));

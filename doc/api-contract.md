@@ -1241,6 +1241,19 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E06 — Calidad de datos
+
+Todas las rutas requieren sesión; `importacionId` solo se busca dentro de la empresa autenticada. Se evalúa la última ejecución ETL completada de esa importación. Si aún no existe un proceso completado se devuelve `409`; si no se ha ejecutado la validación de calidad se devuelve `404`.
+
+- `POST /api/v1/calidad/:importacionId/validar`: JSON `{ "rules": { "columna": "date|money|integer|number|email|text" } }` (`rules` opcional, por defecto `{}`). Las reglas se asignan por nombre de columna normalizado y se guardan con el resultado. Respuesta `200` `{ message, processId, dataImportId, quality }`.
+- `GET /api/v1/calidad/:importacionId`: devuelve el mismo resumen persistido sin los errores individuales.
+- `GET /api/v1/calidad/:importacionId/errores?page=1&limit=20`: devuelve `{ message, processId, errors: [{ row, field, reason }], pagination }` con límite máximo 100.
+- `PUT /api/v1/calidad/:importacionId/registros/:row`: JSON `{ "record": { "columna": "valor corregido" } }`. Solo permite filas con errores y debe conservar todas las columnas; guarda la corrección y recalcula la calidad. El dato original permanece intacto. Respuesta `200` con el resumen actualizado.
+
+`quality` contiene `totalProcessed`, `validRecords`, `rejectedRecords`, `duplicates` e `incompleteRecords`. Los motivos son `empty`, `duplicate`, `missing`, `invalid` o `invalid_<tipo>`. `date` requiere `AAAA-MM-DD` real; `money` decimal con hasta dos cifras; `integer` entero seguro; `number` decimal finito; `email` formato básico. No se infieren columnas ni reglas de negocio. Entradas inválidas responden `400`; recurso ajeno o inexistente `404`; proceso aún no completado o fila sin errores `409`.
+
+---
+
 ## BE E05 — ETL y procesamiento
 
 Todas las rutas requieren la cookie de sesión. La empresa se obtiene de la sesión; un ID ajeno responde `404`.
