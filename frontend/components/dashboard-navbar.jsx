@@ -1,10 +1,9 @@
-import { Bell, ChevronDown, FileCheck2, LayoutDashboard, Settings2, Sparkles, Upload } from "lucide-react"
+import { Bell, ChevronDown, FileCheck2, LayoutDashboard, Settings2, Upload } from "lucide-react"
 import ThemeToggle from "@/components/theme-toggle"
 
 const navItems = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "processing", label: "Procesamiento", icon: Sparkles },
   { id: "data-entry", label: "Carga de datos", icon: Upload },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "data-quality", label: "Calidad de datos", icon: FileCheck2 },
   { id: "settings", label: "Configuración", icon: Settings2 },
 ]

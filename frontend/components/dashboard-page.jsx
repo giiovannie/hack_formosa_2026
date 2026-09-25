@@ -23,7 +23,7 @@ function WidgetPicker({ visibleIds, onToggle }) {
 }
 
 export default function DashboardPage() {
-  const [activeView, setActiveView] = useState("dashboard")
+  const [activeView, setActiveView] = useState("data-entry")
   const [visibleIds, setVisibleIds] = useState(dashboardWidgets.map((widget) => widget.id))
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [widgets, setWidgets] = useState(dashboardWidgets)
@@ -31,12 +31,8 @@ export default function DashboardPage() {
   const toggleWidget = (id) => setVisibleIds((current) => current.includes(id) ? current.filter((currentId) => currentId !== id) : [...current, id])
   const retryWidget = (id) => setWidgets((current) => current.map((widget) => widget.id === id ? { ...widget, status: "loading" } : widget))
 
-  if (activeView === "processing") {
-    return <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0F17]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><ProcessingDashboard embedded /></div>
-  }
-
   if (activeView === "data-entry") {
-    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div></div>
+    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div><ProcessingDashboard embedded /></div>
   }
 
   if (activeView === "data-quality") {
