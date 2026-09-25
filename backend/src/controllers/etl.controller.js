@@ -14,7 +14,7 @@ export const createEtlControllers = (database, models, config) => {
     if (dataImport.status === 'processing') throw conflict();
     await dataImport.update({ status: 'processing' }, { transaction });
     const run = await models.ProcessingRunModel.create({ companyId, dataImportId, status: 'processing',
-      stages: [{ name: 'received', status: 'completed' }, { name: 'normalize', status: 'processing' }] }, { transaction });
+      stages: [{ name: 'extraction', status: 'completed' }, { name: 'validation', status: 'processing' }] }, { transaction });
     return { dataImport, run };
   });
   const execute = async (req, res, next, dataImportId) => {
@@ -26,15 +26,14 @@ export const createEtlControllers = (database, models, config) => {
         const result = await runEtl(started.dataImport, config);
         await database.transaction(async (transaction) => {
           await run.update({ status: 'completed', result, stages: [
-            { name: 'received', status: 'completed' }, { name: 'normalize', status: 'completed' },
-            { name: 'quality', status: 'completed' },
-          ] }, { transaction });
+            'extraction', 'validation', 'cleaning', 'sanitization', 'normalization', 'classification', 'loading',
+          ].map((name) => ({ name, status: 'completed' })) }, { transaction });
           await started.dataImport.update({ status: 'completed' }, { transaction });
         });
       } catch (error) {
         await database.transaction(async (transaction) => {
           await run.update({ status: 'failed', errors: [error.message.slice(0, 200)], stages: [
-            { name: 'received', status: 'completed' }, { name: 'normalize', status: 'failed' },
+            { name: 'extraction', status: 'completed' }, { name: 'validation', status: 'failed' },
           ] }, { transaction });
           await started.dataImport.update({ status: 'failed' }, { transaction });
         });
