@@ -1,5 +1,71 @@
 # API-CONTRACT.md
 
+## BE E03 — Entrada y carga de datos (IMPLEMENTADO)
+
+Tarjeta: https://trello.com/c/UHxJgrrx (134). Todos los endpoints requieren usuario autenticado; `companyId` siempre proviene de la sesión. Los datos quedan sin procesar (`pending`), listos para una tarea ETL posterior. Cada carga representa una `dataImport`; no crea ventas, compras ni métricas automáticamente.
+
+- `POST /api/v1/datos/importaciones`: `multipart/form-data` con `file` CSV UTF-8 (máximo 1 MiB), `sourceId` entero positivo, `dataType` texto no vacío (máximo 100), `metadata` objeto JSON opcional serializado como texto. El nombre del archivo debe terminar en `.csv`; se rechazan archivos vacíos o no UTF-8. Respuesta 201 `{ message, dataImport }`.
+- `POST /api/v1/datos/registros`: JSON `{ sourceId, dataType, record, metadata? }`. `record` es objeto JSON no vacío; `metadata` es objeto opcional. Respuesta 201 `{ message, dataImport }`. La validación semántica del registro corresponde a ETL.
+- `GET /api/v1/datos/importaciones`: query `page` (1), `limit` (10, máximo 100). Respuesta 200 `{ message, dataImports, pagination }`. Lista sin contenido crudo.
+- `GET /api/v1/datos/importaciones/:id`: ID positivo. Respuesta 200 `{ message, dataImport }`, sin contenido crudo. Los datos originales se conservan internamente para ETL.
+
+El resumen público de una importación contiene `id`, `companyId`, `sourceId`, `kind` (`file`/`manual`), `dataType`, `metadata`, `originalFilename` (`null` para manual), `status` (`pending`), `createdAt` y `updatedAt`. La fuente debe estar activa y pertenecer a la misma empresa. Una carga ajena o fuente ajena responde 404. Error 400 para formato/entrada inválida, 401 para sesión inválida, 403 para origen no permitido, 413 para archivo superior a 1 MiB, 500 sin detalles internos. No se acepta un `companyId` enviado por cliente.
+
+## BE E04 — Gestión de fuentes (IMPLEMENTADO)
+
+Tarjeta: https://trello.com/c/MKdsN0Z8 (136). Base `/api/v1/fuentes`; usuario autenticado consulta, `owner` crea, actualiza y elimina fuentes de su empresa. El tenant siempre proviene de la sesión.
+
+Campos JSON: `name` (nombre, texto no vacío, máximo 255), `type` (`internal` o `external`), `origin` (origen, texto no vacío, máximo 255), `description` (descripción, texto opcional, máximo 2000), `status` (estado, texto libre no vacío, máximo 100), `sourceUpdatedAt` (fecha de actualización de la fuente, ISO 8601 opcional). `status` es descriptivo; no se inventa un catálogo. El tiempo de cambio del registro se representa por `updatedAt` gestionado por Sequelize. No aceptar `companyId` en body ni query.
+
+| Método | Ruta | Entrada | Respuesta |
+| --- | --- | --- | --- |
+| GET | `/fuentes` | `page` (1), `limit` (10, máximo 100) | 200 `{ message, sources, pagination }` |
+| GET | `/fuentes/:id` | ID entero positivo | 200 `{ message, source }` |
+| POST | `/fuentes` | Campos `name`, `type`, `origin`, `status`; `description` y `sourceUpdatedAt` opcionales | 201 `{ message, source }` |
+| PUT | `/fuentes/:id` | Mismos campos de POST; reemplazo completo | 200 `{ message, source }` |
+| DELETE | `/fuentes/:id` | ID entero positivo | 200 `{ message }`; eliminación lógica si no existen datos asociados |
+
+Fuente pública: `id`, `companyId`, esos seis campos y `createdAt`/`updatedAt`. Una fuente ajena o inactiva responde 404. 400 para validaciones, 401 para sesión inválida, 403 para rol insuficiente, 500 sin detalles internos. Las importaciones posteriores deben referenciar la fuente y bloquear su eliminación cuando haya datos asociados.
+
+## BE E02 — Perfil y configuración empresarial (IMPLEMENTADO)
+
+Tarjeta: https://trello.com/c/M8COh8Y5 (132). Perfil único por empresa, obtenida exclusivamente del usuario autenticado. JSON en inglés: `industry` corresponde a rubro; `areas` a áreas; `availableData` a datos disponibles; `analysisObjectives` a objetivos de análisis.
+
+- `GET /api/v1/empresa/perfil`: cualquier usuario autenticado de la empresa. Respuesta 200 `{ message, profile }`; `profile` es `null` si aún no fue configurado. La consulta no crea registros.
+- `PUT /api/v1/empresa/perfil`: solo `owner`. Crea el perfil si no existe o reemplaza sus cuatro valores. Body obligatorio `{ industry, areas, availableData, analysisObjectives }`. Respuesta 200 `{ message, profile }`, tanto en creación como en actualización. Operación atómica, sin modificar Company ni usuarios.
+
+`industry` es texto libre no vacío, sin espacios externos, hasta 255 caracteres. Las otras propiedades son arrays obligatorios de textos no vacíos; se recortan espacios externos. Se permiten arrays vacíos para borrar una selección. No hay catálogos; se conservan orden y duplicados. Aplica el límite JSON existente de 32 KiB. No se admiten campos adicionales ni parámetros query, especialmente `companyId`.
+
+Perfil público: `{ id, companyId, industry, areas, availableData, analysisObjectives, createdAt, updatedAt }`. Todos los accesos usan `req.user.companyId`. Escrituras concurrentes se serializan por Company y se revalida el owner dentro de la transacción. Una empresa o usuario inactivo no puede acceder.
+
+Errores: 400 por entradas inválidas (formato general de validación); 401 sesión inválida; 403 permisos insuficientes/origen no permitido; 404 empresa ya no disponible durante una escritura; 500 error interno sin detalles. Autenticación, cookie y protección de origen reutilizan BE E01.
+
+## BE E01 — Empresas y usuarios (IMPLEMENTADO)
+
+Tarjeta: https://trello.com/c/dSiy7F4C (130). Contrato aprobado por el usuario el 2026-09-25. Implementado y validado mediante pruebas HTTP sobre MySQL real en `backend/test/api.integration.test.js`.
+
+Base: `/api/v1`. Propiedades JSON en inglés. Usuario público: `id`, `firstName`, `lastName`, `email`, `role`, `companyId`, `createdAt`, `updatedAt`; nunca `password`. Empresa pública: `id`, `name`, `createdAt`, `updatedAt`.
+
+| Método y ruta | Acceso | Entrada | Respuesta exitosa |
+| --- | --- | --- | --- |
+| POST `/empresas` | Público | `{ "name": "Empresa", "owner": { "firstName": "Ana", "lastName": "Pérez", "email": "ana@example.com", "password": "..." } }` | 201 `{ message, company, user }`; alta transaccional, primer usuario owner; no inicia sesión automáticamente |
+| POST `/auth/login` | Público | `{ "email": "ana@example.com", "password": "..." }` | 200 `{ message, user }` y cookie de sesión |
+| GET `/empresas/:id` | Usuario autenticado de esa empresa | ID entero positivo | 200 `{ message, company }` |
+| GET `/usuarios` | owner | `page` (1 por defecto), `limit` (10 por defecto, máximo 100) | 200 `{ message, users, pagination: { page, limit, total, totalPages } }` |
+| POST `/usuarios` | owner | `{ firstName, lastName, email, password, role }` | 201 `{ message, user }`; companyId obtenido de la sesión |
+| PUT `/usuarios/:id` | owner de la misma empresa | `{ firstName, lastName, email, role }`; `password` opcional para cambiarla | 200 `{ message, user }` |
+| DELETE `/usuarios/:id` | owner de la misma empresa | ID entero positivo | 200 `{ message }`; eliminación lógica |
+
+Los campos indicados son obligatorios salvo indicación contraria. Nombres no vacíos, máximo 255 caracteres; email válido, máximo 255, sin espacios externos y normalizado a minúsculas. Contraseña de 8 caracteres como mínimo y máximo 72 bytes UTF-8 (límite de bcrypt). Roles: `owner` y `member`, enviados explícitamente para alta/edición de usuarios. Rechazar campos extra, incluido `companyId`. Email único global, incluso para usuarios eliminados; sin recuperación de cuentas en esta tarea.
+
+Autenticación propuesta: JWT HS256 en cookie `token`, `HttpOnly`, `SameSite=Strict`, `Path=/api/v1`, `Secure` en producción. Duración obligatoria desde `JWT_EXPIRES_IN` (número de segundos o duración con unidad). Payload mínimo: `id`, `companyId`; rol y estado activo se verifican en MySQL en cada solicitud. No devolver el JWT en JSON. CORS con un único origen explícito `FRONTEND_URL` y credenciales; solicitudes de escritura de navegador deben corresponder a ese origen. Frontend y API deben desplegarse bajo el mismo sitio para esta política de cookies.
+
+No permitir eliminar ni degradar al último owner activo: responder 409 y conservar los datos. Serializar cambios de usuarios por empresa mediante transacción y bloqueo de la fila Company para evitar carreras. Una empresa o usuario eliminado no puede iniciar sesión ni reutilizar una sesión anterior.
+
+Errores: 400 validación (formato general `message`, `errors`); 401 credenciales/sesión inválidas; 403 rol insuficiente/origen no permitido; 404 recurso inexistente o ajeno; 409 email ocupado o último owner; 500 error interno sin detalles. Login usa el mismo mensaje para email inexistente, contraseña incorrecta y cuenta inactiva.
+
+Decisiones aprobadas: alta pública Company + owner con JSON anidado; login solo por email según database.md; cookie y duración configurada; contrato de CRUD/paginación/validación; bloqueo del último owner.
+
 ## Propósito
 
 Este documento define el contrato de comunicación entre Frontend y Backend.
@@ -1175,6 +1241,110 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E14 — Tendencias y estimaciones
+
+Respuesta `200`: `{ message, analysis: { metric, field, from, to, interval, filters, status, trend, estimate, evidence } }`. Con al menos tres puntos históricos seguros, `status` es `estimated`; `trend` contiene `direction` (`increasing`, `decreasing`, `stable`), `slopePerInterval` y `method: "least_squares_linear"`. `estimate` contiene `kind: "estimate"`, el siguiente período, `value` y el método. `evidence` conserva los puntos históricos reales usados. La extrapolación lineal es descriptiva y no garantiza resultados futuros. Las estimaciones de conteos negativos se limitan a cero. Los cálculos usan números finitos de magnitud hasta 10¹²; fuera de ese rango se devuelve `not_estimable` sin estimación. Con menos de tres puntos se devuelve `insufficient_data` sin tendencia ni estimación.
+
+La consulta no modifica históricos. Parámetros inválidos responden `400`; fuente ajena o inexistente, `404`.
+
+---
+
+## BE E13 — Detección de patrones
+
+`GET /api/v1/patrones?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` requiere sesión y reutiliza los filtros, métricas y períodos UTC de E12 sobre registros procesados de la empresa. Acepta como máximo 120 intervalos.
+
+Respuesta `200`: `{ message, analysis: { metric, field, interval, from, to, filters, status, observedPeriods, patterns } }`. `status` es `insufficient_data` cuando hay menos de tres intervalos con datos, o `analyzed`. En el MVP solo se identifica `repeated_value`: el mismo valor exacto de la métrica observado en tres o más intervalos con datos. Cada patrón incluye `value`, `occurrences` y `evidence` con `period`, `value` e `includedRecords`. Una lista vacía de patrones significa que no se observó esa recurrencia; no implica ausencia de otros comportamientos. El resultado es una observación descriptiva, no una predicción ni una inferencia causal.
+
+Parámetros inválidos responden `400`; fuente ajena o inexistente, `404`. El análisis no modifica históricos.
+
+---
+
+## BE E12 — Históricos y comparaciones
+
+Las consultas requieren sesión, usan `companyId` autenticado y reutilizan las métricas configurables de E11 sobre `ProcessedRecord`. Los períodos se aplican a la fecha de persistencia UTC, con límites inclusivos `AAAA-MM-DD`. `dataType` y `sourceId` son filtros opcionales. `metric` admite `count`, `sum`, `average`, `min`, `max`; `field` se requiere para métricas numéricas y se prohíbe para `count`.
+
+- `GET /api/v1/historicos/comparar?fromA=&toA=&fromB=&toB=&metric=&field=&dataType=&sourceId=` devuelve `{ message, comparison: { metric, field, filters, periodA, periodB, difference } }`. Cada período incluye `from`, `to`, `value`, `includedRecords` y `skippedRecords`. `difference` es período B menos A, numérica para `count`, cadena decimal para agregados o `null` si falta un valor.
+- `GET /api/v1/historicos/serie?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` devuelve `{ message, series: { metric, field, interval, filters, from, to, points } }`. Cada punto incluye `period`, `value`, `includedRecords` y `skippedRecords`. Solo aparecen intervalos con datos; no se rellenan huecos con cero. Se aceptan como máximo 120 intervalos por consulta.
+
+Fechas, métricas o intervalos inválidos responden `400`; una fuente ajena o inexistente, `404`. Las consultas no modifican registros históricos.
+
+---
+
+## BE E11 — Métricas empresariales configurables
+
+`GET /api/v1/metricas?metric=&field=&from=&to=&dataType=&sourceId=` requiere sesión. `metric` admite `count`, `sum`, `average`, `min`, `max`. Para agregados numéricos se requiere `field`, nombre exacto de una columna normalizada; `count` no lo admite. La entidad se selecciona mediante `dataType` y los filtros/períodos siguen E09: fecha de persistencia UTC, fuente propia y empresa autenticada.
+
+Respuesta `200`: `{ message, metric: { name, field, filters, value, includedRecords, skippedRecords } }`. `count` devuelve `value` numérico; los agregados numéricos devuelven una cadena decimal exacta (`average` redondea a seis decimales) o `null` si no hay valores numéricos. Los registros con campo ausente o no numérico se omiten y se contabilizan en `skippedRecords`; no se convierten silenciosamente en cero. El cálculo usa exclusivamente `ProcessedRecord`. Métricas inválidas o `field` incompatible responden `400`; fuente ajena o inexistente, `404`. No se atribuye significado de ventas, stock o dinero a columnas libres.
+
+---
+
+## BE E10 — Visualización de información
+
+`GET /api/v1/visualizaciones?type=&metric=record_count&groupBy=&from=&to=&dataType=&sourceId=` requiere sesión y agrupa únicamente registros procesados de la empresa autenticada. Reutiliza los filtros E09 (`from`/`to` inclusivos en UTC sobre fecha de persistencia, `dataType`, `sourceId` propio). La única métrica genérica definida es `record_count`; no se infieren importes ni unidades de columnas libres.
+
+`type` admite `bar`, `line`, `pie`, `table`, `card`. `groupBy` admite `dataType`, `sourceId`, `day`; por defecto `dataType` en barras, tortas y tablas, y `day` en líneas. Las líneas exigen `day`; las tarjetas no admiten agrupación. La respuesta `200` es `{ message, visualization: { type, metric, groupBy, filters, data } }`. Para barras, líneas y tortas, `data` es `{ labels: string[], values: number[] }`; para tablas, `{ columns: ["group", "value"], rows: [{ group, value }] }`; para tarjetas, `{ value: number }`. No se agregan puntos ficticios para días sin datos. Tipo o combinación inválida responde `400`; fuente ajena o inexistente, `404`.
+
+---
+
+## BE E09 — Dashboard interactivo
+
+El dashboard requiere sesión y utiliza exclusivamente el `companyId` autenticado. El período `from`/`to` (fechas inclusivas `AAAA-MM-DD`, UTC) se aplica a la fecha de persistencia del registro procesado; no se infiere una fecha de negocio de columnas libres. Los filtros opcionales son `dataType` (texto) y `sourceId` (fuente propia, incluso si fue dada de baja lógicamente). Un período inválido responde `400`; una fuente inexistente o ajena, `404`.
+
+- `GET /api/v1/dashboard?from=&to=&dataType=&sourceId=`: devuelve `{ message, dashboard: { companyId, profile, filters, availableWidgets, widgets } }`. `profile` incluye `rubro`, `areas`, `datosDisponibles` y `objetivosAnalisis`, o `null`. Si no hay registros procesados en el filtro, las listas de widgets son vacías.
+- `GET /api/v1/dashboard/widgets/:widgetId` acepta los mismos filtros. Los IDs disponibles son `records-by-type` y `records-by-source`; devuelve `{ message, filters, widget: { id, data } }`. `data` es una lista agregada de `{ dataType, count }` o `{ sourceId, count }`, respectivamente. Un ID desconocido responde `400`.
+
+Las cifras se calculan sobre `ProcessedRecord`, nunca sobre cargas crudas. No se devuelven filas completas en los widgets. Métricas de negocio que requieran un esquema específico pertenecen a tareas posteriores.
+
+---
+
+## BE E08 — Trazabilidad
+
+Todas las rutas requieren sesión y buscan exclusivamente dentro de la empresa autenticada; un registro o importación ajenos responden `404`. Las respuestas no incluyen datos crudos ni datasets completos.
+
+- `GET /api/v1/trazabilidad/registros/:registroId`: devuelve `{ message, trace }` con `recordId`, `source` (`id`, `name`, `type`, `origin`, `deletedAt`), `importation` (`id`, `kind`, `dataType`, `createdAt`), `processing` (`id`, `status`, `stages`, `createdAt`, `updatedAt`), `validation` (`status`, `validatedAt`) y `persistence` (`recordId`, `createdAt`).
+- `GET /api/v1/trazabilidad/importaciones/:importacionId?page=1&limit=20`: devuelve `{ message, history: { importation, source, runs }, pagination }`. Cada ejecución de `runs` conserva `id`, `status`, `stages`, `errors`, resumen `quality` cuando existe, `qualityValidatedAt`, `persistedRecords`, `createdAt` y `updatedAt`. Límite máximo 100.
+
+La traza incluye fuentes con baja lógica para mantener su origen histórico. La fecha de validación se conserva dentro del resultado de la ejecución ETL; la lectura de trazas no altera el historial.
+
+---
+
+## BE E07 — Persistencia y almacenamiento
+
+La persistencia la realiza Node/Sequelize en MySQL después de ETL y validación de calidad. La empresa se toma de la sesión. Todas las rutas requieren autenticación; los recursos de otra empresa responden `404`.
+
+- `POST /api/v1/datos-procesados/importaciones/:importacionId`: guarda en una transacción las filas sin errores de la última ejecución ETL completada y validada. Devuelve `200` `{ message, processingRunId, persistedRecords, alreadyPersisted }`. Una repetición sobre esa ejecución no duplica registros. Si falta ETL o calidad devuelve `409`.
+- `GET /api/v1/datos-procesados?page=1&limit=20`: lista paginada (máximo 100) de registros propios, ordenados por ID, con `{ message, records, pagination }`.
+- `GET /api/v1/datos-procesados/:id`: devuelve `{ message, record }` o `404`.
+
+Cada `record` contiene `id`, `companyId`, `sourceId`, `dataImportId`, `processingRunId`, `rowNumber`, `dataType`, `values`, `createdAt` y `updatedAt`. `values` conserva las columnas normalizadas o su corrección validada. El original permanece en la importación/ejecución ETL. Una ejecución con registros ya almacenados no admite nuevas correcciones ni cambios de reglas; se reprocesa para crear un histórico nuevo.
+
+---
+
+## BE E06 — Calidad de datos
+
+Todas las rutas requieren sesión; `importacionId` solo se busca dentro de la empresa autenticada. Se evalúa la última ejecución ETL completada de esa importación. Si aún no existe un proceso completado se devuelve `409`; si no se ha ejecutado la validación de calidad se devuelve `404`.
+
+- `POST /api/v1/calidad/:importacionId/validar`: JSON `{ "rules": { "columna": "date|money|integer|number|email|text" } }` (`rules` opcional, por defecto `{}`). Las reglas se asignan por nombre de columna normalizado y se guardan con el resultado. Respuesta `200` `{ message, processId, dataImportId, quality }`.
+- `GET /api/v1/calidad/:importacionId`: devuelve el mismo resumen persistido sin los errores individuales.
+- `GET /api/v1/calidad/:importacionId/errores?page=1&limit=20`: devuelve `{ message, processId, errors: [{ row, field, reason }], pagination }` con límite máximo 100.
+- `PUT /api/v1/calidad/:importacionId/registros/:row`: JSON `{ "record": { "columna": "valor corregido" } }`. Solo permite filas con errores y debe conservar todas las columnas; guarda la corrección y recalcula la calidad. El dato original permanece intacto. Respuesta `200` con el resumen actualizado.
+
+`quality` contiene `totalProcessed`, `validRecords`, `rejectedRecords`, `duplicates` e `incompleteRecords`. Los motivos son `empty`, `duplicate`, `missing`, `invalid` o `invalid_<tipo>`. `date` requiere `AAAA-MM-DD` real; `money` decimal con hasta dos cifras; `integer` entero seguro; `number` decimal finito; `email` formato básico. No se infieren columnas ni reglas de negocio. Entradas inválidas responden `400`; recurso ajeno o inexistente `404`; proceso aún no completado o fila sin errores `409`.
+
+---
+
+## BE E05 — ETL y procesamiento
+
+Todas las rutas requieren la cookie de sesión. La empresa se obtiene de la sesión; un ID ajeno responde `404`.
+
+- `POST /api/v1/etl/procesar/:importacionId`: ejecuta el ETL de una importación propia y devuelve `200` con `{ "message": "Proceso ETL finalizado", "process": { "id", "companyId", "dataImportId", "status", "stages", "errors", "result": { "summary": { "total", "accepted", "rejected" } }, "createdAt", "updatedAt" } }`. `status` vale `completed` o `failed`. Una importación en proceso responde `409`.
+- `GET /api/v1/etl/procesos/:id`: devuelve `200` con `{ "message": "Proceso ETL obtenido", "process": ... }` o `404`.
+- `POST /api/v1/etl/reprocesar/:id`: crea otra ejecución para la importación del proceso propio indicado; devuelve el mismo formato que `procesar`, sin sobrescribir ejecuciones previas.
+
+`result` es `null` cuando falla. Los registros originales y normalizados se conservan en el backend para pasos posteriores, pero la API expone solo el resumen. Los CSV y registros JSON se normalizan de forma genérica; se separan filas vacías y duplicadas sin inferir columnas de negocio. El proceso Python local recibe y devuelve JSON por stdin/stdout, con tiempo máximo de 30 segundos.
+
+---
+
 No se deberá:
 
 - inventar endpoints;
@@ -1233,3 +1403,59 @@ mínimo dato necesario
 ```
 
 `API-CONTRACT.md` deberá contener solamente la información necesaria para que los distintos dominios compartan una misma estructura sin reinterpretaciones.
+
+---
+
+## BE E15 — Productividad
+
+
+
+`GET /api/v1/productividad?from=&to=&interval=day|month|year&dataType=&sourceId=&areaField=&area=&operationField=&employeeField=&employee=` requiere sesión. `from`, `to`, `interval` y `dataType` son obligatorios. `areaField`, `operationField` y `employeeField` indican los nombres de columnas de los registros procesados; `area` requiere `areaField`, y `employee` y `employeeField` deben enviarse juntos. La empresa se obtiene de la sesión. `sourceId` y `dataType` restringen los registros de esa empresa. Las fechas corresponden a la persistencia UTC de cada registro.
+
+Respuesta `200`: `{ message, indicators: { dataType, from, to, interval, filters, totalOperations, averagePerObservedPeriod, periods, byArea, byOperation, missingArea, missingOperation, interpretation: "descriptive" } }`. `periods` contiene `{ period, count }` por intervalo observado; `byArea` y `byOperation` contienen recuentos por valor textual. El promedio usa únicamente períodos con registros y es `null` si no hay ninguno. Los campos ausentes se contabilizan por separado. Es un indicador descriptivo de operaciones registradas, sin puntuación ni clasificación de empleados y sin inferir un esquema de negocio. Filtros inválidos responden `400`; una fuente inexistente o ajena, `404`.
+
+
+`GET /api/v1/tendencias?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` requiere sesión y reutiliza E12: series de registros procesados, filtros por empresa/fuente/tipo, período UTC y máximo 120 intervalos. `metric` admite las métricas E11; las numéricas requieren `field`.
+
+---
+
+## BE E16 — Fuentes externas oficiales
+
+`GET /api/v1/fuentes-externas` devuelve las cinco fuentes autorizadas: Estadística Formosa, Datos Argentina, CKAN, Georef y Series de Tiempo. Cada elemento indica `id`, `name`, `type`, `origin`, `status` y `sourceUpdatedAt` (`null` si se desconoce). Este catálogo es distinto de las fuentes de datos de cada empresa (`/fuentes`). Todas las rutas requieren sesión.
+
+`GET /api/v1/fuentes-externas/datos-argentina-georef/consultar?nombre=Formosa` consulta únicamente el endpoint fijo oficial `/georef/api/provincias` con `max=1` y campos `id,nombre`. `nombre` es opcional (por defecto `Formosa`), texto no vacío de hasta 80 caracteres. Respuesta `200`: `{ message, queryId, provenance: { kind: "external", sourceId, name, origin, consultedAt, sourceUpdatedAt }, data: { provincias } }`. La respuesta no se incorpora a los registros internos. Se registra cada intento de red en `ExternalQueries`, con empresa, usuario, fuente, parámetros, estado y fecha. `GET /api/v1/fuentes-externas/consultas` devuelve hasta 100 intentos recientes de la empresa autenticada, sin contenido externo.
+
+Fuentes no autorizadas responden `404`; fuentes autorizadas sin adaptador, `409`; fallo del proveedor, `502` con `queryId`. No se consulta una URL arbitraria enviada por el cliente, ni se realiza scraping. Solo Georef dispone de adaptador en este MVP; los demás registros preparan ampliaciones posteriores.
+
+---
+
+## BE E17 — Contextualización temporal
+
+`GET /api/v1/contextualizacion?from=&to=&interval=day|month|year&metric=count|sum|average|min|max&field=&dataType=&sourceId=&externalSourceId=datos-argentina-series&seriesId=` requiere sesión. Reutiliza filtros, métricas y máximo 120 intervalos de E12 para los registros procesados de la empresa. `field` se requiere solo para métricas numéricas. `seriesId` es un ID de serie oficial elegido por el cliente y se limita a caracteres alfanuméricos, punto, guion y guion bajo. El Backend consulta el endpoint fijo oficial de Series de Tiempo, con el mismo período e intervalo, y registra el intento en el historial E16.
+
+Respuesta `200`: `{ message, context: { period, internal: { metric, field, filters, points }, external: { provenance, points }, observedOverlap, status, interpretation } }`. `observedOverlap` muestra únicamente períodos que tienen un valor interno y otro externo; conserva las unidades por separado. `status` es `observed` con al menos dos coincidencias o `insufficient_overlap` en otro caso. No se calcula causalidad ni se afirma comparabilidad de unidades. Fuente no autorizada: `404`; fuente sin serie temporal: `409`; fallo del proveedor: `502` con ID de consulta; parámetros inválidos: `400`. El contenido externo no se almacena como registro interno.
+---
+
+## BE E19 — Alertas por umbral configurable
+
+`POST /api/v1/alertas/evaluar` requiere sesión y JSON `{ metric, field?, operator, threshold, from, to, dataType?, sourceId? }`. `metric` usa `count|sum|average|min|max` de E11; `field` es obligatorio para métricas numéricas y no se admite con `count`. `operator` acepta `lt|lte|gt|gte`; `threshold` es decimal en texto. `from` y `to` son fechas UTC `AAAA-MM-DD`, inclusivas, aplicadas a la persistencia de registros procesados. La empresa proviene exclusivamente de la sesión. No se infieren campos de stock, ventas ni gastos: el cliente configura la condición sobre datos disponibles.
+
+Si no hay registros evaluables, responde `200` con `evaluation.status: "insufficient_data"` y `alert: null`. Si la condición no se cumple, `200` con `status: "not_triggered"`. Si se cumple, `201` con `status: "triggered"` y la alerta persistida. Cada evaluación devuelve `condition` y `evidence: { value, includedRecords, skippedRecords }`. Solo las condiciones cumplidas con evidencia crean una alerta de tipo `metric_threshold` y estado `active`.
+
+`GET /api/v1/alertas?status=active|acknowledged` lista hasta 100 alertas de la empresa; `GET /api/v1/alertas/:id` consulta una; `PATCH /api/v1/alertas/:id/reconocer` cambia su estado a `acknowledged`. Acceso ajeno o alerta inexistente: `404`. Condiciones inválidas: `400`; fuente de datos ajena o inexistente: `404`. No se crean alertas automáticas sin condición explícita.
+---
+
+## BE E20 — Respaldo y restauración de empresa
+
+Todas las rutas requieren sesión de `owner`; la empresa se obtiene de la sesión. `POST /api/v1/respaldos` crea un archivo JSON privado en `backend/backups/`, con permisos restringidos y nombre aleatorio, y registra en MySQL metadatos con `id`, `companyId`, `createdById`, estado `ready`, tipo `manual` y fecha. La respuesta `201` devuelve solo metadatos públicos, nunca ruta, nombre de archivo, hash ni contenido. `GET /api/v1/respaldos` lista hasta 100 respaldos propios. No existe descarga ni ruta pública de archivos.
+
+El contenido incluye nombre de empresa, usuarios (incluidos hashes de contraseña), perfil, fuentes, importaciones, ejecuciones ETL, registros procesados, alertas, consultas externas y exportaciones, con sus relaciones y fechas. Los metadatos de respaldos y eventos de restauración no se reemplazan. Los respaldos nuevos usan versión 2; los de versión 1 siguen siendo restaurables sin historial de exportaciones. El archivo tiene límite de 100 MiB y SHA-256 para detectar alteraciones; no se guardan credenciales en la API. El directorio está ignorado por Git y debe ser privado en el despliegue.
+
+`POST /api/v1/respaldos/:id/restaurar` exige `{ "confirm": true }`. Comprueba que el respaldo sea de la empresa autenticada y que su archivo conserve integridad. Antes de reemplazar crea automáticamente otro respaldo `pre_restore` del estado actual. Después, en la misma transacción MySQL, reemplaza solo los datos de esa empresa y agrega un evento de restauración con `backupId`, `safetyBackupId`, `performedById` y fecha. La respuesta `200` devuelve estos identificadores. Una falla de restauración revierte la transacción y elimina el archivo automático no confirmado. Restaurar usuarios puede devolver contraseñas y roles al estado respaldado; las sesiones se validan contra los usuarios actuales en cada solicitud. `GET /api/v1/respaldos/restauraciones` lista hasta 100 eventos propios. Respaldo ajeno o inexistente: `404`; falta de permisos: `403`; confirmación inválida: `400`; archivo ausente o alterado: `409`.
+---
+
+## BE E21 — Exportación CSV
+
+`POST /api/v1/exportaciones` requiere sesión y JSON `{ kind, format: "csv", from?, to?, dataType?, sourceId?, metric?, field?, interval? }`. `kind` acepta `records`, `metric` o `history`. `records` exporta registros procesados con identificadores de fuente/importación/ETL, fecha UTC y `values` JSON en una celda; máximo 10 000 registros. `metric` exporta una métrica E11. `history` exporta una serie histórica E12 y exige `from`, `to` e `interval=day|month|year`. Para los últimos dos se exige `metric=count|sum|average|min|max`, con `field` solo en métricas numéricas. Los filtros se aplican exclusivamente a la empresa autenticada y a la fecha de persistencia UTC.
+
+La respuesta `200` es un adjunto `text/csv` UTF-8 con encabezados, `Cache-Control: no-store` y `X-Export-Id`. El CSV neutraliza fórmulas de planilla y limita el archivo a 20 MiB. No se crea un archivo público. Se registra `ExportRecord` con empresa, usuario, tipo, formato, filtros, cantidad de filas, estado `completed` y fecha. `GET /api/v1/exportaciones` lista hasta 100 exportaciones propias, sin contenido. Formato o combinación inválida: `400`; fuente ajena o inexistente: `404`; límite de tamaño: `413`. PDF, Excel e imagen quedan fuera del MVP.
