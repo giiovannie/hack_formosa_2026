@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E15 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E16 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -38,7 +38,17 @@ test('BE E01–E15 HTTP contracts and isolation on real MySQL', async (t) => {
   await database.sync();
   const config = { JWT_SECRET: randomBytes(32).toString('hex'), JWT_EXPIRES_IN: '1h', FRONTEND_URL: 'http://localhost:5173', NODE_ENV: 'production',
     PYTHON_EXECUTABLE: process.env.TEST_PYTHON_EXECUTABLE || path.join(process.cwd(), '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python') };
-  const app = createApp({ database, models, config });
+  let externalFailure = false;
+  const externalFetch = async (url, options) => {
+    assert.equal(url.origin, 'https://apis.datos.gob.ar');
+    assert.equal(url.pathname, '/georef/api/provincias');
+    assert.equal(url.searchParams.get('max'), '1');
+    assert.equal(options.redirect, 'error');
+    if (externalFailure) throw new Error('Proveedor indisponible');
+    return new Response(JSON.stringify({ provincias: [{ id: '34', nombre: 'Formosa' }] }),
+      { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const app = createApp({ database, models, config, externalFetch });
   server = await new Promise((resolve) => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
   const base = `http://127.0.0.1:${server.address().port}/api/v1`;
   const request = async (method, path, data, cookie, origin) => {
@@ -602,6 +612,31 @@ test('BE E01–E15 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('GET', '/productividad?from=2026-08-01&to=2026-09-30&interval=month&dataType=operations&area=Sur', undefined, cookieA)).status, 400);
     assert.equal((await request('GET', '/productividad?from=2026-08-01&to=2026-09-30&interval=month&dataType=operations&employee=Ana', undefined, cookieA)).status, 400);
     assert.equal((await request('GET', '/productividad?from=2026-08-01&to=2026-09-30&interval=month', undefined, cookieA)).status, 400);
+  });
+  await t.test('E16 uses only approved sources, records consultations and isolates external data', async () => {
+    const catalog = await request('GET', '/fuentes-externas', undefined, cookieA);
+    assert.equal(catalog.status, 200);
+    assert.equal(catalog.body.sources.length, 5);
+    assert.ok(catalog.body.sources.every((source) => source.origin.startsWith('https://')));
+    assert.equal((await request('GET', '/fuentes-externas')).status, 401);
+    assert.equal((await request('GET', '/fuentes-externas/no-autorizada/consultar', undefined, cookieA)).status, 404);
+    assert.equal((await request('GET', '/fuentes-externas/estadistica-formosa/consultar', undefined, cookieA)).status, 409);
+    const found = await request('GET', '/fuentes-externas/datos-argentina-georef/consultar?nombre=Formosa', undefined, cookieA);
+    assert.equal(found.status, 200, JSON.stringify(found.body));
+    assert.equal(found.body.provenance.kind, 'external');
+    assert.equal(found.body.provenance.sourceId, 'datos-argentina-georef');
+    assert.equal(found.body.data.provincias[0].nombre, 'Formosa');
+    const historyA = await request('GET', '/fuentes-externas/consultas', undefined, cookieA);
+    const historyB = await request('GET', '/fuentes-externas/consultas', undefined, cookieB);
+    assert.equal(historyA.body.queries.length, 1);
+    assert.equal(historyA.body.queries[0].status, 'success');
+    assert.equal(historyB.body.queries.length, 0);
+    externalFailure = true;
+    const failed = await request('GET', '/fuentes-externas/datos-argentina-georef/consultar', undefined, cookieB);
+    assert.equal(failed.status, 502);
+    assert.equal((await request('GET', '/fuentes-externas/consultas', undefined, cookieB)).body.queries[0].status, 'failed');
+    assert.equal((await request('GET', '/fuentes-externas/consultas', undefined, cookieA)).body.queries.length, 1);
+    externalFailure = false;
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);

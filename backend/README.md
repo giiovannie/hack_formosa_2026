@@ -40,6 +40,8 @@ Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa ta
 Se agregó `multer` porque la API recibe archivos multipart. Limita CSV a 1 MiB en memoria; el Backend no transforma ni clasifica sus filas. Consultar `doc/api-contract.md` para los campos y respuestas.
 # ETL (BE E05)
 
+BE E16 expone el catálogo oficial autorizado en `/api/v1/fuentes-externas` y una consulta demostrativa a Georef en `/api/v1/fuentes-externas/datos-argentina-georef/consultar?nombre=Formosa`. Cada intento queda en `ExternalQueries` por empresa; los datos externos se devuelven con procedencia explícita y no se mezclan con los registros internos. Los portales y APIs sin adaptador específico permanecen registrados, sin scraping.
+
 BE E15 expone indicadores descriptivos de productividad en `/api/v1/productividad`. Cuenta registros procesados por período, área y tipo de operación usando columnas elegidas por el cliente; permite filtrar por empleado sin asignar puntuaciones.
 
 BE E14 expone análisis de tendencia en `/api/v1/tendencias`. Usa regresión lineal simple sobre la serie E12, separa puntos reales de la estimación del siguiente intervalo y devuelve estado de información insuficiente cuando corresponde.

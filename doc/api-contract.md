@@ -1408,9 +1408,21 @@ mínimo dato necesario
 
 ## BE E15 — Productividad
 
+
+
 `GET /api/v1/productividad?from=&to=&interval=day|month|year&dataType=&sourceId=&areaField=&area=&operationField=&employeeField=&employee=` requiere sesión. `from`, `to`, `interval` y `dataType` son obligatorios. `areaField`, `operationField` y `employeeField` indican los nombres de columnas de los registros procesados; `area` requiere `areaField`, y `employee` y `employeeField` deben enviarse juntos. La empresa se obtiene de la sesión. `sourceId` y `dataType` restringen los registros de esa empresa. Las fechas corresponden a la persistencia UTC de cada registro.
 
 Respuesta `200`: `{ message, indicators: { dataType, from, to, interval, filters, totalOperations, averagePerObservedPeriod, periods, byArea, byOperation, missingArea, missingOperation, interpretation: "descriptive" } }`. `periods` contiene `{ period, count }` por intervalo observado; `byArea` y `byOperation` contienen recuentos por valor textual. El promedio usa únicamente períodos con registros y es `null` si no hay ninguno. Los campos ausentes se contabilizan por separado. Es un indicador descriptivo de operaciones registradas, sin puntuación ni clasificación de empleados y sin inferir un esquema de negocio. Filtros inválidos responden `400`; una fuente inexistente o ajena, `404`.
 
 
 `GET /api/v1/tendencias?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` requiere sesión y reutiliza E12: series de registros procesados, filtros por empresa/fuente/tipo, período UTC y máximo 120 intervalos. `metric` admite las métricas E11; las numéricas requieren `field`.
+
+---
+
+## BE E16 — Fuentes externas oficiales
+
+`GET /api/v1/fuentes-externas` devuelve las cinco fuentes autorizadas: Estadística Formosa, Datos Argentina, CKAN, Georef y Series de Tiempo. Cada elemento indica `id`, `name`, `type`, `origin`, `status` y `sourceUpdatedAt` (`null` si se desconoce). Este catálogo es distinto de las fuentes de datos de cada empresa (`/fuentes`). Todas las rutas requieren sesión.
+
+`GET /api/v1/fuentes-externas/datos-argentina-georef/consultar?nombre=Formosa` consulta únicamente el endpoint fijo oficial `/georef/api/provincias` con `max=1` y campos `id,nombre`. `nombre` es opcional (por defecto `Formosa`), texto no vacío de hasta 80 caracteres. Respuesta `200`: `{ message, queryId, provenance: { kind: "external", sourceId, name, origin, consultedAt, sourceUpdatedAt }, data: { provincias } }`. La respuesta no se incorpora a los registros internos. Se registra cada intento de red en `ExternalQueries`, con empresa, usuario, fuente, parámetros, estado y fecha. `GET /api/v1/fuentes-externas/consultas` devuelve hasta 100 intentos recientes de la empresa autenticada, sin contenido externo.
+
+Fuentes no autorizadas responden `404`; fuentes autorizadas sin adaptador, `409`; fallo del proveedor, `502` con `queryId`. No se consulta una URL arbitraria enviada por el cliente, ni se realiza scraping. Solo Georef dispone de adaptador en este MVP; los demás registros preparan ampliaciones posteriores.

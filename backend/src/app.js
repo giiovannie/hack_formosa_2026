@@ -38,8 +38,10 @@ import { createTrendRouter } from './routes/trend.routes.js';
 import { createTrendControllers } from './controllers/trend.controller.js';
 import { createProductivityRouter } from './routes/productivity.routes.js';
 import { createProductivityControllers } from './controllers/productivity.controller.js';
+import { createExternalSourceRouter } from './routes/externalSource.routes.js';
+import { createExternalSourceControllers } from './controllers/externalSource.controller.js';
 
-export const createApp = ({ database, models, config }) => {
+export const createApp = ({ database, models, config, externalFetch }) => {
   if (!config.FRONTEND_URL || !/^https?:$/.test(new URL(config.FRONTEND_URL).protocol)) {
     throw new Error('FRONTEND_URL debe ser un origen HTTP válido');
   }
@@ -75,6 +77,7 @@ export const createApp = ({ database, models, config }) => {
   app.use('/api/v1/patrones', createPatternRouter(createPatternControllers(database, models), auth));
   app.use('/api/v1/tendencias', createTrendRouter(createTrendControllers(database, models), auth));
   app.use('/api/v1/productividad', createProductivityRouter(createProductivityControllers(models), auth));
+  app.use('/api/v1/fuentes-externas', createExternalSourceRouter(createExternalSourceControllers(models, externalFetch), auth));
   app.use((req, res) => res.status(404).json({ message: 'Recurso no encontrado' }));
   app.use(errorMiddleware);
   return app;
