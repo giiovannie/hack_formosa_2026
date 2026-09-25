@@ -29,7 +29,7 @@ export const processingSteps = [
   { label: "Carga", caption: "Resultado listo para análisis", tag: "Listo" },
 ]
 
-export default function ProcessingDashboard() {
+export default function ProcessingDashboard({ embedded = false }) {
   const [activeView, setActiveView] = useState("processing")
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
@@ -65,7 +65,7 @@ export default function ProcessingDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] text-[#1E293B] dark:bg-[#0B0F17] dark:text-[#F8FAFC]">
-      <header className="sticky top-0 z-40 border-b border-[#E2E8F0] bg-[#F8F9FA]/80 backdrop-blur-md dark:border-[#263346] dark:bg-[#0B0F17]/80">
+      {!embedded && <header className="sticky top-0 z-40 border-b border-[#E2E8F0] bg-[#F8F9FA]/80 backdrop-blur-md dark:border-[#263346] dark:bg-[#0B0F17]/80">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-orange-600 to-orange-500">
@@ -108,7 +108,7 @@ export default function ProcessingDashboard() {
             </button>
           </div>
         </nav>
-      </header>
+      </header>}
 
       <main className="mx-auto max-w-7xl px-6 py-8">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

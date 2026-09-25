@@ -2,6 +2,7 @@ import { useState } from "react"
 import { Check, ChevronDown, SlidersHorizontal } from "lucide-react"
 import DashboardNavbar from "@/components/dashboard-navbar"
 import DashboardWidget from "@/components/dashboard-widget"
+import ProcessingDashboard from "@/components/processing-dashboard"
 import { dashboardWidgets } from "@/components/dashboard-data"
 import CompanyConfiguration from "@/components/Profile-and-empresarial-configuration"
 
@@ -27,6 +28,10 @@ export default function DashboardPage() {
 
   const toggleWidget = (id) => setVisibleIds((current) => current.includes(id) ? current.filter((currentId) => currentId !== id) : [...current, id])
   const retryWidget = (id) => setWidgets((current) => current.map((widget) => widget.id === id ? { ...widget, status: "loading" } : widget))
+
+  if (activeView === "processing") {
+    return <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0F17]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><ProcessingDashboard embedded /></div>
+  }
 
   if (activeView === "settings") {
     return <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0F17]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><CompanyConfiguration embedded /></div>
