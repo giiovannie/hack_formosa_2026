@@ -1241,6 +1241,17 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E12 — Históricos y comparaciones
+
+Las consultas requieren sesión, usan `companyId` autenticado y reutilizan las métricas configurables de E11 sobre `ProcessedRecord`. Los períodos se aplican a la fecha de persistencia UTC, con límites inclusivos `AAAA-MM-DD`. `dataType` y `sourceId` son filtros opcionales. `metric` admite `count`, `sum`, `average`, `min`, `max`; `field` se requiere para métricas numéricas y se prohíbe para `count`.
+
+- `GET /api/v1/historicos/comparar?fromA=&toA=&fromB=&toB=&metric=&field=&dataType=&sourceId=` devuelve `{ message, comparison: { metric, field, filters, periodA, periodB, difference } }`. Cada período incluye `from`, `to`, `value`, `includedRecords` y `skippedRecords`. `difference` es período B menos A, numérica para `count`, cadena decimal para agregados o `null` si falta un valor.
+- `GET /api/v1/historicos/serie?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` devuelve `{ message, series: { metric, field, interval, filters, from, to, points } }`. Cada punto incluye `period`, `value`, `includedRecords` y `skippedRecords`. Solo aparecen intervalos con datos; no se rellenan huecos con cero. Se aceptan como máximo 120 intervalos por consulta.
+
+Fechas, métricas o intervalos inválidos responden `400`; una fuente ajena o inexistente, `404`. Las consultas no modifican registros históricos.
+
+---
+
 ## BE E11 — Métricas empresariales configurables
 
 `GET /api/v1/metricas?metric=&field=&from=&to=&dataType=&sourceId=` requiere sesión. `metric` admite `count`, `sum`, `average`, `min`, `max`. Para agregados numéricos se requiere `field`, nombre exacto de una columna normalizada; `count` no lo admite. La entidad se selecciona mediante `dataType` y los filtros/períodos siguen E09: fecha de persistencia UTC, fuente propia y empresa autenticada.

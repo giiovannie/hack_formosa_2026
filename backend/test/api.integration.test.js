@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E11 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E12 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -491,6 +491,36 @@ test('BE E01–E11 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal(skipped.body.metric.value, '7');
     assert.equal(skipped.body.metric.includedRecords, 3);
     assert.equal(skipped.body.metric.skippedRecords, 1);
+  });
+  await t.test('E12 compares historical periods and produces sparse time series without writes', async () => {
+    await models.ProcessedRecordModel.update({ createdAt: new Date('2026-09-15T12:00:00.000Z') },
+      { where: { companyId: companyA.body.company.id } });
+    await models.ProcessedRecordModel.update({ createdAt: new Date('2026-08-15T12:00:00.000Z') },
+      { where: { id: tracedRecordId, companyId: companyA.body.company.id } });
+    const comparison = await request('GET', '/historicos/comparar?metric=count&fromA=2026-08-01&toA=2026-08-31&fromB=2026-09-01&toB=2026-09-30', undefined, cookieA);
+    assert.equal(comparison.status, 200, JSON.stringify(comparison.body));
+    assert.equal(comparison.body.comparison.periodA.value, 1);
+    assert.equal(comparison.body.comparison.periodB.value, 3);
+    assert.equal(comparison.body.comparison.difference, 2);
+    const numeric = await request('GET', '/historicos/comparar?metric=sum&field=quantity&fromA=2026-08-01&toA=2026-08-31&fromB=2026-09-01&toB=2026-09-30', undefined, cookieA);
+    assert.equal(numeric.body.comparison.periodA.value, '2');
+    assert.equal(numeric.body.comparison.periodB.value, '5');
+    assert.equal(numeric.body.comparison.difference, '3');
+    const monthly = await request('GET', '/historicos/serie?metric=count&interval=month&from=2026-08-01&to=2026-09-30', undefined, cookieA);
+    assert.equal(monthly.status, 200, JSON.stringify(monthly.body));
+    assert.deepEqual(monthly.body.series.points.map(({ period, value }) => ({ period, value })),
+      [{ period: '2026-08', value: 1 }, { period: '2026-09', value: 3 }]);
+    const daily = await request('GET', '/historicos/serie?metric=count&interval=day&from=2026-08-15&to=2026-09-15', undefined, cookieA);
+    assert.deepEqual(daily.body.series.points.map(({ period, value }) => ({ period, value })),
+      [{ period: '2026-08-15', value: 1 }, { period: '2026-09-15', value: 3 }]);
+    assert.equal((await request('GET', '/historicos/serie?metric=count&interval=year&from=2026-01-01&to=2026-12-31', undefined, cookieA)).body.series.points[0].value, 4);
+    assert.equal((await request('GET', '/historicos/comparar?metric=count&fromA=2026-08-01&toA=2026-08-31&fromB=2026-09-01&toB=2026-09-30', undefined, cookieB)).body.comparison.periodA.value, 0);
+    assert.equal((await request('GET', '/historicos/serie?metric=count&interval=month&from=2026-08-01&to=2026-09-30', undefined, cookieB)).body.series.points.length, 0);
+    assert.equal((await request('GET', '/historicos/serie?metric=count&interval=day&from=2026-01-01&to=2026-05-01', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/historicos/serie?metric=count&interval=week&from=2026-08-01&to=2026-09-30', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/historicos/comparar?metric=count&fromA=2026-08-31&toA=2026-08-01&fromB=2026-09-01&toB=2026-09-30', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/historicos/serie?metric=count&interval=month&from=2026-08-01&to=2026-09-30')).status, 401);
+    assert.equal((await models.ProcessedRecordModel.findByPk(tracedRecordId)).createdAt.toISOString(), '2026-08-15T12:00:00.000Z');
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);

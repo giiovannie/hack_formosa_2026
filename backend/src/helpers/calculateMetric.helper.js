@@ -1,5 +1,5 @@
 // Generic arithmetic over values that passed ETL and quality. No business field is inferred.
-const parseDecimal = (value) => {
+export const parseDecimal = (value) => {
   const text = String(value ?? '').trim();
   if (!/^-?\d+(?:\.\d+)?$/.test(text) || text.length > 100) return null;
   const negative = text.startsWith('-');
@@ -7,13 +7,25 @@ const parseDecimal = (value) => {
   return { units: BigInt(`${negative ? '-' : ''}${whole}${fraction}`), scale: fraction.length };
 };
 
-const formatDecimal = (units, scale) => {
+export const formatDecimal = (units, scale) => {
   const sign = units < 0n ? '-' : '';
   const digits = (units < 0n ? -units : units).toString().padStart(scale + 1, '0');
   if (scale === 0) return `${sign}${digits}`;
   const whole = digits.slice(0, -scale);
   const fraction = digits.slice(-scale).replace(/0+$/, '');
   return fraction ? `${sign}${whole}.${fraction}` : `${sign}${whole}`;
+};
+
+export const subtractMetricValues = (current, previous) => {
+  if (current === null || previous === null) return null;
+  if (typeof current === 'number' && typeof previous === 'number') return current - previous;
+  const a = parseDecimal(current);
+  const b = parseDecimal(previous);
+  if (!a || !b) return null;
+  const scale = Math.max(a.scale, b.scale);
+  const left = a.units * 10n ** BigInt(scale - a.scale);
+  const right = b.units * 10n ** BigInt(scale - b.scale);
+  return formatDecimal(left - right, scale);
 };
 
 export const calculateMetric = async (ProcessedRecordModel, where, metric, field, transaction) => {

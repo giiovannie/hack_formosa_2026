@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateMetric } from '../src/helpers/calculateMetric.helper.js';
+import { calculateMetric, subtractMetricValues } from '../src/helpers/calculateMetric.helper.js';
 
 const rows = [
   { values: { amount: '-0.1' } },
@@ -20,4 +20,11 @@ test('metrics preserve decimal precision and disclose skipped records', async ()
   assert.equal((await calculateMetric(model, {}, 'min', 'amount')).value, '-0.1');
   assert.equal((await calculateMetric(model, {}, 'max', 'amount')).value, '0.2');
   assert.deepEqual(await calculateMetric(model, {}, 'sum', 'missing'), { value: null, includedRecords: 0, skippedRecords: 4 });
+});
+
+test('historical differences keep decimal precision and do not invent missing values', () => {
+  assert.equal(subtractMetricValues('0.2', '0.1'), '0.1');
+  assert.equal(subtractMetricValues('0.1', '0.2'), '-0.1');
+  assert.equal(subtractMetricValues(3, 1), 2);
+  assert.equal(subtractMetricValues(null, '1'), null);
 });
