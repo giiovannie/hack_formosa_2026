@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01/E02/E03/E04 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E07 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -333,6 +333,61 @@ test('BE E01/E02/E03/E04 HTTP contracts and isolation on real MySQL', async (t) 
     const stored = await models.ProcessingRunModel.findByPk(fixed.body.processId);
     assert.equal(stored.result.accepted[0].original.date, '2026-02-30');
     assert.equal(stored.result.corrections['1'].date, '2026-02-27');
+  });
+  await t.test('E07 stores only validated records, preserves history and tenant references', async () => {
+    const csv = await uploadCsv(cookieA, importSource.id, 'stored.csv', 'product,quantity\nA,2\nA,2\n , \n');
+    assert.equal(csv.status, 201);
+    const id = csv.body.dataImport.id;
+    assert.equal((await request('POST', `/datos-procesados/importaciones/${id}`, undefined, cookieA)).status, 409);
+    assert.equal((await request('POST', `/datos-procesados/importaciones/${id}`, undefined, cookieB)).status, 404);
+    assert.equal((await request('POST', `/datos-procesados/importaciones/${id}`)).status, 401);
+    const processed = await request('POST', `/etl/procesar/${id}`, undefined, cookieA);
+    assert.equal(processed.body.process.status, 'completed');
+    assert.equal((await request('POST', `/datos-procesados/importaciones/${id}`, undefined, cookieA)).status, 409);
+    const quality = await request('POST', `/calidad/${id}/validar`, { rules: { quantity: 'integer' } }, cookieA);
+    assert.equal(quality.body.quality.validRecords, 1);
+    const saved = await request('POST', `/datos-procesados/importaciones/${id}`, undefined, cookieA);
+    assert.equal(saved.status, 200, JSON.stringify(saved.body));
+    assert.equal(saved.body.persistedRecords, 1);
+    assert.equal(saved.body.alreadyPersisted, false);
+    const again = await request('POST', `/datos-procesados/importaciones/${id}`, undefined, cookieA);
+    assert.equal(again.body.alreadyPersisted, true);
+    assert.equal(again.body.persistedRecords, 1);
+    assert.equal((await request('POST', `/calidad/${id}/validar`, {}, cookieA)).status, 409);
+    assert.equal((await request('PUT', `/calidad/${id}/registros/2`, { record: { product: 'B', quantity: '3' } }, cookieA)).status, 409);
+    const list = await request('GET', '/datos-procesados?page=1&limit=1', undefined, cookieA);
+    assert.equal(list.status, 200);
+    assert.equal(list.body.pagination.total, 1);
+    const record = list.body.records[0];
+    assert.equal(record.companyId, companyA.body.company.id);
+    assert.equal(record.sourceId, importSource.id);
+    assert.equal(record.dataImportId, id);
+    assert.equal(record.processingRunId, processed.body.process.id);
+    assert.equal(record.values.product, 'A');
+    assert.equal((await request('GET', `/datos-procesados/${record.id}`, undefined, cookieB)).status, 404);
+    assert.equal((await request('GET', '/datos-procesados', undefined, cookieB)).body.pagination.total, 0);
+    const reprocessed = await request('POST', `/etl/reprocesar/${processed.body.process.id}`, undefined, cookieA);
+    assert.equal(reprocessed.body.process.status, 'completed');
+    assert.notEqual(reprocessed.body.process.id, processed.body.process.id);
+    assert.equal((await request('POST', `/calidad/${id}/validar`, {}, cookieA)).status, 200);
+    assert.equal((await request('POST', `/datos-procesados/importaciones/${id}`, undefined, cookieA)).body.persistedRecords, 1);
+    assert.equal((await request('GET', '/datos-procesados', undefined, cookieA)).body.pagination.total, 2);
+    assert.equal(await models.ProcessedRecordModel.count({ where: { processingRunId: processed.body.process.id } }), 1);
+    const fixable = await uploadCsv(cookieA, importSource.id, 'corrected.csv', 'product,quantity\nC,\n');
+    assert.equal(fixable.status, 201);
+    const fixableId = fixable.body.dataImport.id;
+    assert.equal((await request('POST', `/etl/procesar/${fixableId}`, undefined, cookieA)).body.process.status, 'completed');
+    assert.equal((await request('POST', `/calidad/${fixableId}/validar`, { rules: { quantity: 'integer' } }, cookieA)).body.quality.validRecords, 0);
+    const corrected = await request('PUT', `/calidad/${fixableId}/registros/1`, { record: { product: 'C', quantity: '3' } }, cookieA);
+    assert.equal(corrected.body.quality.validRecords, 1);
+    const savedCorrection = await request('POST', `/datos-procesados/importaciones/${fixableId}`, undefined, cookieA);
+    assert.equal(savedCorrection.body.persistedRecords, 1);
+    const storedCorrection = await models.ProcessedRecordModel.findOne({ where: { companyId: companyA.body.company.id, dataImportId: fixableId } });
+    assert.equal(storedCorrection.values.quantity, '3');
+    assert.equal((await models.DataImportModel.scope('withRawPayload').findByPk(fixableId)).rawPayload, 'product,quantity\nC,\n');
+    await assert.rejects(models.ProcessedRecordModel.create({ companyId: companyA.body.company.id, sourceId: 2147483647,
+      dataImportId: id, processingRunId: processed.body.process.id, rowNumber: 99, dataType: 'sales', values: { product: 'C' } }),
+    (error) => error.name === 'SequelizeForeignKeyConstraintError');
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);

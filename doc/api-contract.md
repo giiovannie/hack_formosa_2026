@@ -1241,6 +1241,18 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E07 — Persistencia y almacenamiento
+
+La persistencia la realiza Node/Sequelize en MySQL después de ETL y validación de calidad. La empresa se toma de la sesión. Todas las rutas requieren autenticación; los recursos de otra empresa responden `404`.
+
+- `POST /api/v1/datos-procesados/importaciones/:importacionId`: guarda en una transacción las filas sin errores de la última ejecución ETL completada y validada. Devuelve `200` `{ message, processingRunId, persistedRecords, alreadyPersisted }`. Una repetición sobre esa ejecución no duplica registros. Si falta ETL o calidad devuelve `409`.
+- `GET /api/v1/datos-procesados?page=1&limit=20`: lista paginada (máximo 100) de registros propios, ordenados por ID, con `{ message, records, pagination }`.
+- `GET /api/v1/datos-procesados/:id`: devuelve `{ message, record }` o `404`.
+
+Cada `record` contiene `id`, `companyId`, `sourceId`, `dataImportId`, `processingRunId`, `rowNumber`, `dataType`, `values`, `createdAt` y `updatedAt`. `values` conserva las columnas normalizadas o su corrección validada. El original permanece en la importación/ejecución ETL. Una ejecución con registros ya almacenados no admite nuevas correcciones ni cambios de reglas; se reprocesa para crear un histórico nuevo.
+
+---
+
 ## BE E06 — Calidad de datos
 
 Todas las rutas requieren sesión; `importacionId` solo se busca dentro de la empresa autenticada. Se evalúa la última ejecución ETL completada de esa importación. Si aún no existe un proceso completado se devuelve `409`; si no se ha ejecutado la validación de calidad se devuelve `404`.

@@ -64,6 +64,10 @@ Toda entidad empresarial deberá poder relacionarse con la empresa correspondien
 
 Un `ProcessingRun` identifica una ejecución ETL y conserva su vínculo a la importación original: `id` INT PK; `companyId` INT FK Company y `dataImportId` INT FK DataImport, ambos NOT NULL; `status` STRING (`pending`, `processing`, `completed`, `failed`); `stages` JSON array; `errors` JSON array; `result` JSON nullable; timestamps Sequelize. Company 1:N ProcessingRun y DataImport 1:N ProcessingRun, sin eliminación física en cascada. Una importación puede tener varias ejecuciones por reprocesamiento; no se borra el original ni ejecuciones previas. Consultas por `id` siempre incluyen `companyId` de la sesión. El resultado concreto y mecanismo Node/Python se definen en el contrato técnico de E05.
 
+## BE E07 — ProcessedRecord
+
+`ProcessedRecord` guarda una fila normalizada y validada en MySQL: `id` INT PK, `companyId` FK Company, `sourceId` FK Source, `dataImportId` FK DataImport, `processingRunId` FK ProcessingRun, `rowNumber` INT, `dataType` STRING(100) y `values` JSON. Todos los vínculos son obligatorios y usan RESTRICT al eliminar; la pareja `(processingRunId, rowNumber)` es única. Se persisten únicamente filas sin errores en la calidad de la ejecución. Reprocesar genera otra ejecución y nuevas filas, conservando las anteriores. La aplicación siempre filtra consultas por `companyId` de la sesión. `db:init` crea la tabla nueva sin alterar las existentes.
+
 ## BE E03 — DataImport
 
 `DataImport` representa una carga cruda pendiente de ETL. `id` INT PK, `companyId` INT FK Company, `sourceId` INT FK Source, todos NOT NULL; `kind` file/manual, `dataType` STRING(100) NOT NULL, `metadata` JSON NOT NULL (objeto, `{}` si falta), `originalFilename` STRING(255) NULL, `mimeType` STRING(100) NULL, `rawPayload` MEDIUMTEXT NOT NULL, `status` STRING(20) NOT NULL con valor inicial `pending`, más timestamps Sequelize. `rawPayload` conserva el CSV UTF-8 original o JSON serializado del registro manual para el procesamiento posterior; no se expone en las respuestas HTTP. La importación no se elimina en BE E03.

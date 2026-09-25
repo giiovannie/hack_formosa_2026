@@ -25,6 +25,9 @@ export const createQualityControllers = (database, models) => {
         const { rules = {} } = matchedData(req, { locations: ['body'] });
         const output = await database.transaction(async (transaction) => {
           const run = await latest(req.user.companyId, importacionId, transaction, true);
+          if (await models.ProcessedRecordModel.count({ where: { companyId: req.user.companyId, processingRunId: run.id }, transaction })) {
+            throw Object.assign(new Error('El proceso ya fue almacenado; reprocesá para cambiar la calidad'), { status: 409 });
+          }
           const columns = new Set([...run.result.accepted, ...run.result.rejected]
             .flatMap((record) => Object.keys(record.normalized || record.original || {}).map((key) => key.trim())));
           if (Object.keys(rules).some((field) => !columns.has(field))) {
@@ -62,6 +65,9 @@ export const createQualityControllers = (database, models) => {
         const { record } = matchedData(req, { locations: ['body'] });
         const output = await database.transaction(async (transaction) => {
           const run = await latest(req.user.companyId, importacionId, transaction, true);
+          if (await models.ProcessedRecordModel.count({ where: { companyId: req.user.companyId, processingRunId: run.id }, transaction })) {
+            throw Object.assign(new Error('El proceso ya fue almacenado; reprocesá para corregir'), { status: 409 });
+          }
           if (!run.result?.quality) throw notFound();
           const existing = [...run.result.accepted, ...run.result.rejected].find((item) => item.row === row);
           if (!existing) throw notFound();
