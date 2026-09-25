@@ -22,21 +22,21 @@ export default function ProcessingStepList({
         return (
           <li
             key={step.label}
-            className={`flex items-center gap-4 rounded-2xl border p-4 transition ${
+            className={`flex items-center gap-4 rounded-lg border p-4 transition ${
               isComplete
-                ? "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/5"
+                ? "border-emerald-200 bg-emerald-50 dark:border-[#2b6c55] dark:bg-[#12271f]"
                 : isActive
-                  ? "border-brand-blue/30 bg-blue-50 dark:border-brand/40 dark:bg-brand/5"
-                  : "border-[#E2E8F0] bg-[#F8F9FA] dark:border-[#263346] dark:bg-[#0B0F17]"
+                  ? "border-brand-blue/30 bg-blue-50 dark:border-[#6d4c29] dark:bg-[#2a1d12]"
+                  : "border-[#E2E8F0] bg-[#F8F9FA] dark:border-[#253142] dark:bg-[#121a26]"
             }`}
           >
             <div
-              className={`flex h-11 w-11 items-center justify-center rounded-xl ${
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
                 isComplete
-                  ? "bg-emerald-500 text-white"
+                  ? "bg-emerald-500 text-white dark:bg-[#2b6c55]"
                   : isActive
-                    ? "bg-brand-blue text-white dark:bg-brand dark:text-[#0B0F17]"
-                    : "bg-[#E2E8F0] text-[#64748B] dark:bg-[#263346] dark:text-[#94A3B8]"
+                    ? "bg-brand-blue text-white dark:bg-[#ff6b19]"
+                    : "bg-[#E2E8F0] text-[#64748B] dark:bg-[#253142] dark:text-[#8490a3]"
               }`}
             >
               {isComplete ? <CheckCircle2 className="h-5 w-5" /> : <span className="text-sm font-semibold">{index + 1}</span>}
@@ -44,23 +44,23 @@ export default function ProcessingStepList({
 
             <div className="flex-1">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-base font-semibold text-[#1E293B] dark:text-[#F8FAFC]">{step.label}</p>
+                <p className="text-sm font-semibold text-[#1E293B] dark:text-[#f3f5f7]">{step.label}</p>
                 <span
                   className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${
                     isComplete
-                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-[#12271f] dark:text-[#6ee7b7]"
                       : isActive
-                        ? "bg-brand-blue/10 text-brand-blue dark:bg-brand/10 dark:text-brand"
-                        : "bg-[#E2E8F0] text-[#64748B] dark:bg-[#263346] dark:text-[#94A3B8]"
+                        ? "bg-blue-100 text-blue-700 dark:bg-[#2a1d12] dark:text-[#ffb36e]"
+                        : "bg-[#E2E8F0] text-[#64748B] dark:bg-[#253142] dark:text-[#8490a3]"
                   }`}
                 >
                   {isComplete ? "Listo" : isActive ? "En curso" : "Pendiente"}
                 </span>
               </div>
-              <p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3B8]">{step.caption}</p>
+              <p className="mt-1 text-xs text-[#64748B] dark:text-[#8490a3]">{step.caption}</p>
             </div>
 
-            <div className="rounded-xl bg-white px-3 py-2 text-right text-xs font-medium text-[#1E293B] shadow-sm dark:bg-[#0B0F17] dark:text-[#F8FAFC]">
+            <div className="rounded-md bg-white px-3 py-2 text-right text-xs font-medium text-[#1E293B] shadow-sm dark:bg-[#0b111b] dark:text-[#dce1e8]">
               {step.tag}
             </div>
           </li>

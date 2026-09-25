@@ -64,7 +64,7 @@ export default function ProcessingDashboard({ embedded = false }) {
   const activeStepLabel = processingSteps[Math.min(currentStep, processingSteps.length - 1)]?.label ?? "Extracción"
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#1E293B] dark:bg-[#0B0F17] dark:text-[#F8FAFC]">
+    <div className="min-h-screen bg-[#F8F9FA] text-[#1E293B] dark:bg-[#090d15] dark:text-[#f3f5f7]">
       {!embedded && <header className="sticky top-0 z-40 border-b border-[#E2E8F0] bg-[#F8F9FA]/80 backdrop-blur-md dark:border-[#263346] dark:bg-[#0B0F17]/80">
         <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
@@ -110,11 +110,11 @@ export default function ProcessingDashboard({ embedded = false }) {
         </nav>
       </header>}
 
-      <main className="mx-auto max-w-7xl px-6 py-8">
+      <main className="mx-auto max-w-[1180px] px-5 py-8 lg:px-8 lg:py-10">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.2em] text-brand-blue dark:text-brand">Flujo de trabajo</p>
-            <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#0F172A] dark:text-[#F8FAFC] md:text-4xl">
+            <p className="text-xs font-medium uppercase tracking-[.18em] text-brand-blue dark:text-[#ff792c]">Flujo de trabajo</p>
+            <h1 className="mt-2 text-2xl font-bold tracking-tight text-[#0F172A] dark:text-[#f7f8fa] sm:text-[30px]">
               Procesamiento de datos
             </h1>
           </div>
@@ -126,7 +126,7 @@ export default function ProcessingDashboard({ embedded = false }) {
               setCurrentStep(0)
               setIsProcessing(false)
             }}
-            className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-semibold text-[#1E293B] transition hover:border-brand-blue/50 hover:text-brand-blue dark:border-[#263346] dark:bg-[#151D2A] dark:text-[#F8FAFC] dark:hover:border-brand/60 dark:hover:text-brand"
+            className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-semibold text-[#1E293B] transition hover:border-brand-blue/50 hover:text-brand-blue dark:border-[#293546] dark:bg-[#0f1621] dark:text-[#f3f5f7] dark:hover:border-[#ff6b19] dark:hover:text-[#ff792c]"
           >
             <Wand2 className="h-4 w-4" />
             Reiniciar
@@ -134,11 +134,11 @@ export default function ProcessingDashboard({ embedded = false }) {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1.45fr_0.55fr]">
-          <section className="rounded-3xl border border-[#E2E8F0] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] dark:border-[#263346] dark:bg-[#151D2A] dark:shadow-[0_24px_60px_rgba(0,0,0,0.28)]">
+          <section className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-sm sm:p-7 dark:border-[#253142] dark:bg-[#0f1621] dark:shadow-none">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-medium text-[#64748B] dark:text-[#94A3B8]">Estado actual</p>
-                <h2 className="mt-1 text-2xl font-semibold text-[#1E293B] dark:text-[#F8FAFC]">
+                <p className="text-sm font-medium text-[#64748B] dark:text-[#8490a3]">Estado actual</p>
+                <h2 className="mt-1 text-lg font-semibold text-[#1E293B] dark:text-[#f3f5f7]">
                   {completed ? "Carga completada" : activeStepLabel}
                 </h2>
               </div>
@@ -147,7 +147,7 @@ export default function ProcessingDashboard({ embedded = false }) {
                 type="button"
                 onClick={() => !isProcessing && setIsProcessing(true)}
                 disabled={isProcessing}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-blue px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-80 dark:bg-brand dark:text-[#0B0F17] dark:shadow-[0_0_20px_rgba(249,115,22,0.26)] dark:hover:bg-brand-hover"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand-blue px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-80 dark:bg-[#ff6b19] dark:text-white dark:shadow-none dark:hover:bg-[#ff7c31]"
               >
                 {isProcessing ? (
                   <>
@@ -164,11 +164,11 @@ export default function ProcessingDashboard({ embedded = false }) {
             </div>
 
             <div className="mt-8">
-              <div className="mb-3 flex items-center justify-between text-sm text-[#64748B] dark:text-[#94A3B8]">
+              <div className="mb-3 flex items-center justify-between text-sm text-[#64748B] dark:text-[#8490a3]">
                 <span>Avance</span>
-                <span className="font-semibold text-[#1E293B] dark:text-[#F8FAFC]">{progress}%</span>
+                <span className="font-semibold text-[#1E293B] dark:text-[#f3f5f7]">{progress}%</span>
               </div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-[#E2E8F0] dark:bg-[#263346]">
+              <div className="h-2.5 overflow-hidden rounded-full bg-[#E2E8F0] dark:bg-[#253142]">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-brand-blue via-blue-500 to-[#F97316] transition-all duration-500"
                   style={{ width: `${progress}%` }}
