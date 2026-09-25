@@ -12,7 +12,7 @@ export default function ThemeToggle() {
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
       aria-label={isDark ? "Activar tema claro" : "Activar tema oscuro"}
-      className="group fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-brand-blue shadow-xl shadow-slate-900/10 transition-all duration-300 hover:scale-110 hover:shadow-2xl active:scale-95 dark:border-[#263346] dark:bg-[#151D2A] dark:text-brand dark:shadow-black/40"
+      className="group fixed bottom-4 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-brand-blue shadow-xl shadow-slate-900/10 transition-all duration-300 hover:scale-110 hover:shadow-2xl active:scale-95 dark:border-[#263346] dark:bg-[#151D2A] dark:text-brand dark:shadow-black/40 sm:bottom-6 sm:right-6"
     >
       <span
         className="absolute inset-0 rounded-full bg-brand-blue/10 opacity-0 blur-md transition-opacity duration-300 group-hover:opacity-100 dark:bg-brand/20"
