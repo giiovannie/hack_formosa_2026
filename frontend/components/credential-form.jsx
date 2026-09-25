@@ -14,7 +14,7 @@ function GoogleMark() {
   )
 }
 
-export function CredentialForm({ initialMode = 'login', onClose }) {
+export function CredentialForm({ initialMode = 'login', onClose, onSuccess }) {
   const [mode, setMode] = useState(initialMode)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -28,6 +28,12 @@ export function CredentialForm({ initialMode = 'login', onClose }) {
   }, [onClose])
 
   const isRegister = mode === 'register'
+
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    onSuccess?.()
+    onClose?.()
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/60 px-4 py-8 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="credential-title">
@@ -49,7 +55,7 @@ export function CredentialForm({ initialMode = 'login', onClose }) {
           </p>
         </div>
 
-        <form className="flex flex-col gap-5" onSubmit={(event) => event.preventDefault()}>
+        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
           {isRegister && (
             <label className="flex flex-col gap-2 text-sm font-medium text-[#1E293B] dark:text-[#F8FAFC]" htmlFor="credential-name">
               Nombre o empresa

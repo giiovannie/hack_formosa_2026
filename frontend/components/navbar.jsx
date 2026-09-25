@@ -9,7 +9,7 @@ const links = [
   { label: "Simplicidad", href: "#simplicidad" },
 ]
 
-export default function Navbar() {
+export default function Navbar({ onAuthSuccess }) {
   const [isAuthOpen, setIsAuthOpen] = useState(false)
 
   return (
@@ -52,7 +52,12 @@ export default function Navbar() {
         </div>
       </nav>
       </header>
-      {isAuthOpen && <CredentialForm onClose={() => setIsAuthOpen(false)} />}
+      {isAuthOpen && (
+        <CredentialForm
+          onClose={() => setIsAuthOpen(false)}
+          onSuccess={onAuthSuccess}
+        />
+      )}
     </>
   )
 }
