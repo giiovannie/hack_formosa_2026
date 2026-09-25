@@ -36,11 +36,11 @@ export default function DashboardPage() {
   }
 
   if (activeView === "data-entry") {
-    return <div className="dark min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div></div>
+    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div></div>
   }
 
   if (activeView === "data-quality") {
-    return <div className="dark min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataQuality /></div></div>
+    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataQuality /></div></div>
   }
 
   if (activeView === "settings") {
