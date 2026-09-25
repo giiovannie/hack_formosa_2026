@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { motion } from "framer-motion"
 import { Check, ChevronDown, SlidersHorizontal } from "lucide-react"
 import DashboardNavbar from "@/components/dashboard-navbar"
 import DashboardWidget from "@/components/dashboard-widget"
@@ -8,6 +9,21 @@ import DataQuality from "@/components/data-quality"
 import { dashboardWidgets } from "@/components/dashboard-data"
 import CompanyConfiguration from "@/components/Profile-and-empresarial-configuration"
 import Traceability from "@/components/traceability"
+
+const riseVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } },
+}
+
+const sequenceVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.14 } },
+}
+
+const cardSequenceVariants = {
+  hidden: {},
+  visible: { transition: { staggerChildren: 0.18, delayChildren: 0.08 } },
+}
 
 function WidgetPicker({ visibleIds, onToggle }) {
   return (
@@ -52,17 +68,21 @@ export default function DashboardPage() {
     <div id="dashboard" className="min-h-screen bg-[#F8F9FA] text-[#1E293B] dark:bg-[#0B0F17] dark:text-[#F8FAFC]
       ">
       <DashboardNavbar activeView={activeView} onNavigate={setActiveView} />
-      <main className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
-        <section className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          <div><p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-blue dark:text-brand">Resumen ejecutivo</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-[#0F172A] dark:text-[#F8FAFC] md:text-4xl">Buen día, María</h1><p className="mt-2 text-[#64748B] dark:text-[#94A3B8]">Estos son los indicadores de tu empresa para hoy.</p></div>
-          <div className="relative">
+      <motion.main initial="hidden" animate="visible" variants={sequenceVariants} className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
+        <motion.section variants={riseVariants} className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <motion.div variants={sequenceVariants}>
+            <motion.p variants={riseVariants} className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-blue dark:text-brand">Resumen ejecutivo</motion.p>
+            <motion.h1 variants={riseVariants} className="mt-2 text-3xl font-bold tracking-tight text-[#0F172A] dark:text-[#F8FAFC] md:text-4xl">Buen día, María</motion.h1>
+            <motion.p variants={riseVariants} className="mt-2 text-[#64748B] dark:text-[#94A3B8]">Estos son los indicadores de tu empresa para hoy.</motion.p>
+          </motion.div>
+          <motion.div variants={riseVariants} className="relative">
             <button type="button" onClick={() => setIsPickerOpen((current) => !current)} className="inline-flex items-center gap-2 rounded-xl border border-[#E2E8F0] bg-white px-4 py-2.5 text-sm font-semibold text-[#1E293B] shadow-sm transition hover:border-brand-blue/50 dark:border-[#263346] dark:bg-[#151D2A] dark:text-[#F8FAFC]"><SlidersHorizontal className="h-4 w-4 text-brand-blue dark:text-brand" />Configurar widgets<ChevronDown className={`h-4 w-4 transition-transform ${isPickerOpen ? "rotate-180" : ""}`} /></button>
             {isPickerOpen && <WidgetPicker visibleIds={visibleIds} onToggle={toggleWidget} />}
-          </div>
-        </section>
-        <div className="mb-6 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-[#1E293B] dark:text-[#F8FAFC]">Indicadores principales</h2><p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3B8]">Actualización automática cada 15 minutos</p></div><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">Última sincronización: 09:42</span></div>
-        {visibleIds.length === 0 ? <div className="rounded-2xl border border-dashed border-[#CBD5E1] bg-white px-6 py-16 text-center dark:border-[#475569] dark:bg-[#151D2A]"><p className="font-semibold text-[#1E293B] dark:text-[#F8FAFC]">Tu tablero está vacío</p><p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3B8]">Elegí al menos un widget para comenzar.</p></div> : <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">{widgets.filter((widget) => visibleIds.includes(widget.id)).map((widget) => <DashboardWidget key={widget.id} widget={widget} onRetry={() => retryWidget(widget.id)} />)}</div>}
-      </main>
+          </motion.div>
+        </motion.section>
+        <motion.div variants={riseVariants} className="mb-6 flex items-center justify-between"><div><h2 className="text-lg font-semibold text-[#1E293B] dark:text-[#F8FAFC]">Indicadores principales</h2><p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3B8]">Actualización automática cada 15 minutos</p></div><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">Última sincronización: 09:42</span></motion.div>
+        {visibleIds.length === 0 ? <motion.div variants={riseVariants} className="rounded-2xl border border-dashed border-[#CBD5E1] bg-white px-6 py-16 text-center dark:border-[#475569] dark:bg-[#151D2A]"><p className="font-semibold text-[#1E293B] dark:text-[#F8FAFC]">Tu tablero está vacío</p><p className="mt-1 text-sm text-[#64748B] dark:text-[#94A3B8]">Elegí al menos un widget para comenzar.</p></motion.div> : <motion.div variants={cardSequenceVariants} className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">{widgets.filter((widget) => visibleIds.includes(widget.id)).map((widget) => <motion.div key={widget.id} variants={riseVariants}><DashboardWidget widget={widget} onRetry={() => retryWidget(widget.id)} /></motion.div>)}</motion.div>}
+      </motion.main>
     </div>
   )
 }
