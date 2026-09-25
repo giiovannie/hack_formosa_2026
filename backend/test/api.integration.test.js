@@ -9,7 +9,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E20 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E21 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -730,9 +730,45 @@ test('BE E01–E20 HTTP contracts and isolation on real MySQL', async (t) => {
     const safety = await request('POST', `/respaldos/${restored.body.restoration.safetyBackupId}/restaurar`, { confirm: true }, cookieA);
     assert.equal(safety.status, 200, JSON.stringify(safety.body));
     assert.ok(await models.SourceModel.findByPk(additional.body.source.id));
+    const legacy = JSON.parse(original);
+    legacy.version = 1;
+    delete legacy.tables.exports;
+    const legacyPayload = JSON.stringify(legacy);
+    await writeFile(file, legacyPayload);
+    await metadata.update({ sha256: createHash('sha256').update(legacyPayload).digest('hex') });
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, cookieA)).status, 200);
     assert.equal(await models.SourceModel.count({ where: { companyId: companyB.body.company.id } }), companyBSourceCount);
     assert.equal((await request('GET', '/respaldos', undefined, cookieB)).body.backups.length, 0);
     assert.equal((await request('GET', '/respaldos')).status, 401);
+  });
+  await t.test('E21 exports tenant records, metrics and history as CSV with an audit entry', async () => {
+    const exportCsv = async (data, cookie) => {
+      const response = await fetch(`${base}/exportaciones`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(data) });
+      return { status: response.status, text: await response.text(), id: response.headers.get('x-export-id'),
+        disposition: response.headers.get('content-disposition'), type: response.headers.get('content-type') };
+    };
+    const filters = { from: '2026-08-01', to: '2026-09-30', dataType: 'operations', format: 'csv' };
+    const records = await exportCsv({ ...filters, kind: 'records' }, cookieA);
+    assert.equal(records.status, 200);
+    assert.match(records.type, /text\/csv/);
+    assert.match(records.disposition, /attachment/);
+    assert.match(records.text, /"dataType"/);
+    assert.equal((records.text.match(/"operations"/g) || []).length, 3);
+    const metric = await exportCsv({ ...filters, kind: 'metric', metric: 'count', to: '2026-08-31' }, cookieA);
+    assert.equal(metric.status, 200);
+    assert.match(metric.text, /"count","","2026-08-01","2026-08-31","1"/);
+    const history = await exportCsv({ ...filters, kind: 'history', metric: 'count', interval: 'month' }, cookieA);
+    assert.equal(history.status, 200);
+    assert.match(history.text, /"2026-08","count"/);
+    assert.match(history.text, /"2026-09","count"/);
+    assert.equal((await request('GET', '/exportaciones', undefined, cookieA)).body.exports.length, 3);
+    assert.equal((await request('GET', '/exportaciones', undefined, cookieB)).body.exports.length, 0);
+    assert.equal((await exportCsv({ ...filters, kind: 'records' }, cookieB)).text.includes('operations'), false);
+    assert.equal((await exportCsv({ ...filters, kind: 'records', format: 'pdf' }, cookieA)).status, 400);
+    assert.equal((await exportCsv({ ...filters, kind: 'records', sourceId: 2147483647 }, cookieA)).status, 404);
+    assert.equal((await exportCsv({ ...filters, kind: 'history', metric: 'count', interval: 'week' }, cookieA)).status, 400);
+    assert.equal((await exportCsv({ ...filters, kind: 'records' })).status, 401);
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);

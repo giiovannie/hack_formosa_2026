@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node --import dotenv/config src/server.js",
     "db:init": "node --import dotenv/config scripts/init-database.js",
-    "test": "node --test test/models.test.js test/quality.test.js test/metric.test.js test/pattern.test.js test/trend.test.js",
+    "test": "node --test test/models.test.js test/quality.test.js test/metric.test.js test/pattern.test.js test/trend.test.js test/csv.test.js",
     "test:integration": "node --test test/api.integration.test.js"
   },
   "dependencies": {

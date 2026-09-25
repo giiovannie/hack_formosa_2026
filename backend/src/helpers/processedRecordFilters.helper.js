@@ -1,13 +1,13 @@
 import { Op } from 'sequelize';
 import { matchedData } from 'express-validator';
 
-export const buildProcessedRecordFilters = async (models, req) => {
-  const { from, to, dataType, sourceId } = matchedData(req, { locations: ['query'] });
+export const buildProcessedRecordFiltersFromValues = async (models, companyId, values) => {
+  const { from, to, dataType, sourceId } = values;
   if (from && to && from > to) throw Object.assign(new Error('El período es inválido'), { status: 400 });
-  if (sourceId && !await models.SourceModel.findOne({ where: { id: sourceId, companyId: req.user.companyId }, paranoid: false })) {
+  if (sourceId && !await models.SourceModel.findOne({ where: { id: sourceId, companyId }, paranoid: false })) {
     throw Object.assign(new Error('Fuente no encontrada'), { status: 404 });
   }
-  const where = { companyId: req.user.companyId };
+  const where = { companyId };
   if (dataType) where.dataType = dataType;
   if (sourceId) where.sourceId = sourceId;
   if (from || to) {
@@ -21,3 +21,6 @@ export const buildProcessedRecordFilters = async (models, req) => {
   }
   return { where, appliedFilters: { from: from ?? null, to: to ?? null, dataType: dataType ?? null, sourceId: sourceId ?? null } };
 };
+
+export const buildProcessedRecordFilters = (models, req) =>
+  buildProcessedRecordFiltersFromValues(models, req.user.companyId, matchedData(req, { locations: ['query'] }));

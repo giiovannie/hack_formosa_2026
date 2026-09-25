@@ -40,7 +40,9 @@ Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa ta
 Se agregó `multer` porque la API recibe archivos multipart. Limita CSV a 1 MiB en memoria; el Backend no transforma ni clasifica sus filas. Consultar `doc/api-contract.md` para los campos y respuestas.
 # ETL (BE E05)
 
-BE E20 guarda respaldos privados por empresa en `backend/backups/` (ignorado por Git) y metadatos en MySQL. Solo el owner puede crearlos o restaurarlos. La restauración crea primero un respaldo automático, reemplaza los datos de esa empresa en una transacción y registra el evento. Incluye empresa, usuarios, perfil, fuentes, importaciones, ETL, registros, alertas y consultas externas; los metadatos de respaldo y la bitácora de restauración permanecen fuera del contenido restaurado. El directorio debe conservar acceso restringido y copias operativas fuera de la base de datos.
+BE E21 entrega CSV autenticado en `/api/v1/exportaciones` para registros procesados, métricas E11 y series históricas E12. Respeta empresa, fuente, tipo y período; registra cada archivo generado en `ExportRecords`. El CSV se descarga directamente, sin archivo público ni exportación de datos crudos o contraseñas.
+
+BE E20 guarda respaldos privados por empresa en `backend/backups/` (ignorado por Git) y metadatos en MySQL. Solo el owner puede crearlos o restaurarlos. La restauración crea primero un respaldo automático, reemplaza los datos de esa empresa en una transacción y registra el evento. Incluye empresa, usuarios, perfil, fuentes, importaciones, ETL, registros, alertas, consultas externas y exportaciones; los metadatos de respaldo y la bitácora de restauración permanecen fuera del contenido restaurado. El directorio debe conservar acceso restringido y copias operativas fuera de la base de datos.
 
 BE E19 permite evaluar umbrales explícitos sobre métricas E11 en `/api/v1/alertas/evaluar`. Solo persiste una alerta si hay datos y la condición se cumple; conserva evidencia, período y estado `active` o `acknowledged`, siempre por empresa.
 

@@ -46,6 +46,8 @@ import { createAlertRouter } from './routes/alert.routes.js';
 import { createAlertControllers } from './controllers/alert.controller.js';
 import { createBackupRouter } from './routes/backup.routes.js';
 import { createBackupControllers } from './controllers/backup.controller.js';
+import { createExportRouter } from './routes/export.routes.js';
+import { createExportControllers } from './controllers/export.controller.js';
 
 export const createApp = ({ database, models, config, externalFetch, backupDir }) => {
   if (!config.FRONTEND_URL || !/^https?:$/.test(new URL(config.FRONTEND_URL).protocol)) {
@@ -87,6 +89,7 @@ export const createApp = ({ database, models, config, externalFetch, backupDir }
   app.use('/api/v1/contextualizacion', createContextualizationRouter(createContextualizationControllers(database, models, externalFetch), auth));
   app.use('/api/v1/alertas', createAlertRouter(createAlertControllers(database, models), auth));
   app.use('/api/v1/respaldos', createBackupRouter(createBackupControllers(database, models, backupDir), auth));
+  app.use('/api/v1/exportaciones', createExportRouter(createExportControllers(database, models), auth));
   app.use((req, res) => res.status(404).json({ message: 'Recurso no encontrado' }));
   app.use(errorMiddleware);
   return app;

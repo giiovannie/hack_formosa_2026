@@ -7,7 +7,7 @@ export const defaultBackupDir = fileURLToPath(new URL('../../backups/', import.m
 export const backupTables = [
   ['users', 'UserModel'], ['profile', 'CompanyProfileModel'], ['sources', 'SourceModel'],
   ['imports', 'DataImportModel'], ['runs', 'ProcessingRunModel'], ['records', 'ProcessedRecordModel'],
-  ['alerts', 'AlertModel'], ['externalQueries', 'ExternalQueryModel'],
+  ['alerts', 'AlertModel'], ['externalQueries', 'ExternalQueryModel'], ['exports', 'ExportRecordModel'],
 ];
 const maxBytes = 100 * 1024 * 1024;
 const invalid = (message, status = 409) => Object.assign(new Error(message), { status });
@@ -16,7 +16,7 @@ const checksum = (payload) => createHash('sha256').update(payload).digest('hex')
 export const captureCompany = async (models, companyId, transaction) => {
   const company = await models.CompanyModel.findByPk(companyId, { transaction, lock: transaction.LOCK.UPDATE });
   if (!company) throw invalid('Empresa no encontrada', 404);
-  const snapshot = { version: 1, companyId, company: { name: company.name }, tables: {} };
+  const snapshot = { version: 2, companyId, company: { name: company.name }, tables: {} };
   for (const [key, modelName] of backupTables) {
     snapshot.tables[key] = await models[modelName].unscoped().findAll({ where: { companyId }, paranoid: false,
       order: [['id', 'ASC']], raw: true, transaction });
@@ -48,7 +48,8 @@ export const readSnapshot = async (backupDir, backup, companyId) => {
   if (checksum(payload) !== backup.sha256) throw invalid('Integridad del respaldo inválida');
   let snapshot;
   try { snapshot = JSON.parse(payload); } catch { throw invalid('Contenido del respaldo inválido'); }
-  if (snapshot.version !== 1 || snapshot.companyId !== companyId || typeof snapshot.company?.name !== 'string' ||
+  if (snapshot.version === 1 && snapshot.tables && !snapshot.tables.exports) snapshot.tables.exports = [];
+  if (![1, 2].includes(snapshot.version) || snapshot.companyId !== companyId || typeof snapshot.company?.name !== 'string' ||
       !backupTables.every(([key]) => Array.isArray(snapshot.tables?.[key]) &&
         snapshot.tables[key].every((row) => row.companyId === companyId))) {
     throw invalid('Contenido del respaldo inválido');
