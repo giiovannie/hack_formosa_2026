@@ -4,6 +4,7 @@ import DashboardNavbar from "@/components/dashboard-navbar"
 import DashboardWidget from "@/components/dashboard-widget"
 import ProcessingDashboard from "@/components/processing-dashboard"
 import DataEntry from "@/components/data-entry-and-upload"
+import DataQuality from "@/components/data-quality"
 import { dashboardWidgets } from "@/components/dashboard-data"
 import CompanyConfiguration from "@/components/Profile-and-empresarial-configuration"
 
@@ -36,6 +37,10 @@ export default function DashboardPage() {
 
   if (activeView === "data-entry") {
     return <div className="dark min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div></div>
+  }
+
+  if (activeView === "data-quality") {
+    return <div className="dark min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataQuality /></div></div>
   }
 
   if (activeView === "settings") {
