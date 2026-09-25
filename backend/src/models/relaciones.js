@@ -3,6 +3,7 @@ import { defineUserModel } from './user.model.js';
 import { defineCompanyProfileModel } from './companyProfile.model.js';
 import { defineSourceModel } from './source.model.js';
 import { defineDataImportModel } from './dataImport.model.js';
+import { defineProcessingRunModel } from './processingRun.model.js';
 
 export const initializeModels = (sequelize) => {
   const CompanyModel = defineCompanyModel(sequelize);
@@ -10,6 +11,7 @@ export const initializeModels = (sequelize) => {
   const CompanyProfileModel = defineCompanyProfileModel(sequelize);
   const SourceModel = defineSourceModel(sequelize);
   const DataImportModel = defineDataImportModel(sequelize);
+  const ProcessingRunModel = defineProcessingRunModel(sequelize);
   const relation = {
     foreignKey: { name: 'companyId', allowNull: false },
     onDelete: 'RESTRICT', onUpdate: 'CASCADE',
@@ -24,5 +26,9 @@ export const initializeModels = (sequelize) => {
   DataImportModel.belongsTo(CompanyModel, { ...relation, as: 'company' });
   SourceModel.hasMany(DataImportModel, { foreignKey: { name: 'sourceId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'dataImports' });
   DataImportModel.belongsTo(SourceModel, { foreignKey: { name: 'sourceId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'source' });
-  return { CompanyModel, UserModel, CompanyProfileModel, SourceModel, DataImportModel };
+  CompanyModel.hasMany(ProcessingRunModel, { ...relation, as: 'processingRuns' });
+  ProcessingRunModel.belongsTo(CompanyModel, { ...relation, as: 'company' });
+  DataImportModel.hasMany(ProcessingRunModel, { foreignKey: { name: 'dataImportId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'processingRuns' });
+  ProcessingRunModel.belongsTo(DataImportModel, { foreignKey: { name: 'dataImportId', allowNull: false }, onDelete: 'RESTRICT', onUpdate: 'CASCADE', as: 'dataImport' });
+  return { CompanyModel, UserModel, CompanyProfileModel, SourceModel, DataImportModel, ProcessingRunModel };
 };

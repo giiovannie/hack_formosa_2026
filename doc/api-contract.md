@@ -1241,6 +1241,18 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E05 — ETL y procesamiento
+
+Todas las rutas requieren la cookie de sesión. La empresa se obtiene de la sesión; un ID ajeno responde `404`.
+
+- `POST /api/v1/etl/procesar/:importacionId`: ejecuta el ETL de una importación propia y devuelve `200` con `{ "message": "Proceso ETL finalizado", "process": { "id", "companyId", "dataImportId", "status", "stages", "errors", "result": { "summary": { "total", "accepted", "rejected" } }, "createdAt", "updatedAt" } }`. `status` vale `completed` o `failed`. Una importación en proceso responde `409`.
+- `GET /api/v1/etl/procesos/:id`: devuelve `200` con `{ "message": "Proceso ETL obtenido", "process": ... }` o `404`.
+- `POST /api/v1/etl/reprocesar/:id`: crea otra ejecución para la importación del proceso propio indicado; devuelve el mismo formato que `procesar`, sin sobrescribir ejecuciones previas.
+
+`result` es `null` cuando falla. Los registros originales y normalizados se conservan en el backend para pasos posteriores, pero la API expone solo el resumen. Los CSV y registros JSON se normalizan de forma genérica; se separan filas vacías y duplicadas sin inferir columnas de negocio. El proceso Python local recibe y devuelve JSON por stdin/stdout, con tiempo máximo de 30 segundos.
+
+---
+
 No se deberá:
 
 - inventar endpoints;

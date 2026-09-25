@@ -36,6 +36,17 @@ test('Company and User retain history and enforce tenant relationship', async ()
   await database.close();
 });
 
+test('ETL runs retain their import and tenant relationships', async () => {
+  const database = createDatabase(config);
+  const { ProcessingRunModel, DataImportModel, CompanyModel } = initializeModels(database);
+  assert.equal(ProcessingRunModel.rawAttributes.companyId.allowNull, false);
+  assert.equal(ProcessingRunModel.rawAttributes.dataImportId.allowNull, false);
+  assert.equal(ProcessingRunModel.rawAttributes.companyId.references.model, CompanyModel.tableName);
+  assert.equal(ProcessingRunModel.rawAttributes.dataImportId.references.model, DataImportModel.tableName);
+  assert.equal(ProcessingRunModel.rawAttributes.dataImportId.onDelete, 'RESTRICT');
+  await database.close();
+});
+
 test('database configuration rejects other engines and invalid ports', () => {
   assert.throws(() => createDatabase({ ...config, DB_DIALECT: 'sqlite' }));
   assert.throws(() => createDatabase({ ...config, DB_PORT: 'NaN' }));

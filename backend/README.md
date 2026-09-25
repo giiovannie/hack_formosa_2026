@@ -38,3 +38,6 @@ Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa ta
 `POST /api/v1/datos/importaciones` recibe CSV UTF-8 en `multipart/form-data`; `POST /api/v1/datos/registros` recibe un registro JSON manual. `GET /api/v1/datos/importaciones` y `GET /api/v1/datos/importaciones/:id` exponen estado y metadatos, sin contenido crudo. Todos requieren sesión y usan la empresa autenticada. Cada carga debe indicar una fuente activa de esa empresa; queda en estado `pending` para ETL. `npm run db:init` crea `DataImports` al actualizar desde E04. Las fuentes con importaciones asociadas no pueden darse de baja.
 
 Se agregó `multer` porque la API recibe archivos multipart. Limita CSV a 1 MiB en memoria; el Backend no transforma ni clasifica sus filas. Consultar `doc/api-contract.md` para los campos y respuestas.
+# ETL (BE E05)
+
+Instalá las dependencias Python con `python -m venv .venv` y `.venv/Scripts/python -m pip install -r requirements.txt` en Windows (en Unix, `.venv/bin/python`). Configurá `PYTHON_EXECUTABLE` con la ruta del ejecutable del entorno; `ETL_SCRIPT_PATH` es opcional y por defecto apunta a `etl/process.py`. El servidor no crea tablas automáticamente: aplicá la inicialización de base de datos del proyecto antes de iniciar.

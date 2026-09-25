@@ -60,6 +60,10 @@ Toda entidad empresarial deberá poder relacionarse con la empresa correspondien
 
 # Entidades iniciales
 
+## BE E05 — ProcessingRun
+
+Un `ProcessingRun` identifica una ejecución ETL y conserva su vínculo a la importación original: `id` INT PK; `companyId` INT FK Company y `dataImportId` INT FK DataImport, ambos NOT NULL; `status` STRING (`pending`, `processing`, `completed`, `failed`); `stages` JSON array; `errors` JSON array; `result` JSON nullable; timestamps Sequelize. Company 1:N ProcessingRun y DataImport 1:N ProcessingRun, sin eliminación física en cascada. Una importación puede tener varias ejecuciones por reprocesamiento; no se borra el original ni ejecuciones previas. Consultas por `id` siempre incluyen `companyId` de la sesión. El resultado concreto y mecanismo Node/Python se definen en el contrato técnico de E05.
+
 ## BE E03 — DataImport
 
 `DataImport` representa una carga cruda pendiente de ETL. `id` INT PK, `companyId` INT FK Company, `sourceId` INT FK Source, todos NOT NULL; `kind` file/manual, `dataType` STRING(100) NOT NULL, `metadata` JSON NOT NULL (objeto, `{}` si falta), `originalFilename` STRING(255) NULL, `mimeType` STRING(100) NULL, `rawPayload` MEDIUMTEXT NOT NULL, `status` STRING(20) NOT NULL con valor inicial `pending`, más timestamps Sequelize. `rawPayload` conserva el CSV UTF-8 original o JSON serializado del registro manual para el procesamiento posterior; no se expone en las respuestas HTTP. La importación no se elimina en BE E03.

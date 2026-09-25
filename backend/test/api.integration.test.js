@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
+import path from 'node:path';
 import mysql from 'mysql2/promise';
 import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
@@ -35,7 +36,8 @@ test('BE E01/E02/E03/E04 HTTP contracts and isolation on real MySQL', async (t) 
     DB_USER: connection.user, DB_PASSWORD: connection.password });
   const models = initializeModels(database);
   await database.sync();
-  const config = { JWT_SECRET: randomBytes(32).toString('hex'), JWT_EXPIRES_IN: '1h', FRONTEND_URL: 'http://localhost:5173', NODE_ENV: 'production' };
+  const config = { JWT_SECRET: randomBytes(32).toString('hex'), JWT_EXPIRES_IN: '1h', FRONTEND_URL: 'http://localhost:5173', NODE_ENV: 'production',
+    PYTHON_EXECUTABLE: process.env.TEST_PYTHON_EXECUTABLE || path.join(process.cwd(), '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python') };
   const app = createApp({ database, models, config });
   server = await new Promise((resolve) => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
   const base = `http://127.0.0.1:${server.address().port}/api/v1`;
@@ -267,6 +269,43 @@ test('BE E01/E02/E03/E04 HTTP contracts and isolation on real MySQL', async (t) 
     assert.equal((await request('GET', '/datos/importaciones?companyId=999', undefined, cookieA)).status, 400);
     assert.equal((await request('GET', `/datos/importaciones/${importId}`, undefined, cookieB)).status, 404);
     assert.equal(await models.DataImportModel.count({ where: { companyId: companyA.body.company.id } }), count);
+  });
+  await t.test('E05 processes, isolates and reprocesses imports with quality results', async () => {
+    const first = await request('POST', `/etl/procesar/${importId}`, undefined, cookieA);
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.equal(first.body.process.status, 'completed');
+    assert.deepEqual(first.body.process.result.summary, { total: 1, accepted: 1, rejected: 0 });
+    assert.equal(JSON.stringify(first.body).includes('normalized'), false);
+    const storedRun = await models.ProcessingRunModel.findByPk(first.body.process.id);
+    assert.equal(storedRun.result.accepted[0].normalized.product, 'A');
+    const runId = first.body.process.id;
+    assert.equal((await request('GET', `/etl/procesos/${runId}`, undefined, cookieB)).status, 404);
+    assert.equal((await request('POST', `/etl/reprocesar/${runId}`, undefined, cookieB)).status, 404);
+    assert.equal((await request('POST', `/etl/procesar/${importId}`, undefined, cookieB)).status, 404);
+    const second = await request('POST', `/etl/reprocesar/${runId}`, undefined, cookieA);
+    assert.equal(second.status, 200, JSON.stringify(second.body));
+    assert.notEqual(second.body.process.id, runId);
+    assert.equal(second.body.process.status, 'completed');
+    assert.equal((await request('GET', `/etl/procesos/${runId}`, undefined, cookieA)).body.process.status, 'completed');
+    assert.equal((await request('GET', `/datos/importaciones/${importId}`, undefined, cookieA)).body.dataImport.status, 'completed');
+    const bad = await uploadCsv(cookieA, importSource.id, 'bad-shape.csv', 'a,a\n1,2\n');
+    assert.equal(bad.status, 201);
+    const failed = await request('POST', `/etl/procesar/${bad.body.dataImport.id}`, undefined, cookieA);
+    assert.equal(failed.status, 200);
+    assert.equal(failed.body.process.status, 'failed');
+    assert.equal((await request('GET', `/datos/importaciones/${bad.body.dataImport.id}`, undefined, cookieA)).body.dataImport.status, 'failed');
+    const quality = await uploadCsv(cookieA, importSource.id, 'quality.csv', ' product , quantity\n A , 2 \n A ,2\n , \nB,3\n');
+    assert.equal(quality.status, 201);
+    const qualityRun = await request('POST', `/etl/procesar/${quality.body.dataImport.id}`, undefined, cookieA);
+    assert.equal(qualityRun.body.process.status, 'completed');
+    assert.deepEqual(qualityRun.body.process.result.summary, { total: 4, accepted: 2, rejected: 2 });
+    const qualityStored = await models.ProcessingRunModel.findByPk(qualityRun.body.process.id);
+    assert.deepEqual(qualityStored.result.rejected.map((row) => row.reason), ['duplicate', 'empty']);
+    assert.equal(qualityStored.result.accepted[0].original[' product '], ' A ');
+    const manual = await request('POST', '/datos/registros', { sourceId: importSource.id, dataType: 'sales', record: { product: '  C ', quantity: 4 } }, cookieA);
+    const manualRun = await request('POST', `/etl/procesar/${manual.body.dataImport.id}`, undefined, cookieA);
+    assert.equal(manualRun.body.process.status, 'completed');
+    assert.equal((await models.ProcessingRunModel.findByPk(manualRun.body.process.id)).result.accepted[0].normalized.product, 'C');
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);
