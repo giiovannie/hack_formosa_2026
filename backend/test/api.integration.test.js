@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E16 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E17 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -41,10 +41,15 @@ test('BE E01–E16 HTTP contracts and isolation on real MySQL', async (t) => {
   let externalFailure = false;
   const externalFetch = async (url, options) => {
     assert.equal(url.origin, 'https://apis.datos.gob.ar');
-    assert.equal(url.pathname, '/georef/api/provincias');
-    assert.equal(url.searchParams.get('max'), '1');
     assert.equal(options.redirect, 'error');
     if (externalFailure) throw new Error('Proveedor indisponible');
+    if (url.pathname === '/series/api/series') {
+      assert.equal(url.searchParams.get('ids'), 'serie_oficial_1');
+      return new Response(JSON.stringify({ data: [['2026-08-01', 30], ['2026-09-01', 40]] }),
+        { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    assert.equal(url.pathname, '/georef/api/provincias');
+    assert.equal(url.searchParams.get('max'), '1');
     return new Response(JSON.stringify({ provincias: [{ id: '34', nombre: 'Formosa' }] }),
       { status: 200, headers: { 'content-type': 'application/json' } });
   };
@@ -637,6 +642,23 @@ test('BE E01–E16 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('GET', '/fuentes-externas/consultas', undefined, cookieB)).body.queries[0].status, 'failed');
     assert.equal((await request('GET', '/fuentes-externas/consultas', undefined, cookieA)).body.queries.length, 1);
     externalFailure = false;
+  });
+  await t.test('E17 relates observed periods without claiming causality or mixing tenants', async () => {
+    const path = '/contextualizacion?from=2026-08-01&to=2026-09-30&interval=month&metric=count&dataType=operations&externalSourceId=datos-argentina-series&seriesId=serie_oficial_1';
+    const result = await request('GET', path, undefined, cookieA);
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(result.body.context.status, 'observed');
+    assert.equal(result.body.context.observedOverlap.length, 2);
+    assert.equal(result.body.context.observedOverlap[0].internalValue, 1);
+    assert.equal(result.body.context.observedOverlap[1].externalValue, 40);
+    assert.equal(result.body.context.external.provenance.kind, 'external');
+    assert.match(result.body.context.interpretation, /no demuestra causalidad/);
+    assert.equal((await request('GET', path, undefined, cookieB)).body.context.status, 'insufficient_overlap');
+    assert.equal((await request('GET', path)).status, 401);
+    assert.equal((await request('GET', path.replace('datos-argentina-series', 'otra-fuente'), undefined, cookieA)).status, 404);
+    assert.equal((await request('GET', path.replace('datos-argentina-series', 'datos-argentina-georef'), undefined, cookieA)).status, 409);
+    assert.equal((await request('GET', path.replace('serie_oficial_1', 'bad,id'), undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/fuentes-externas/consultas', undefined, cookieA)).body.queries[0].queryType, 'historical_series');
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);

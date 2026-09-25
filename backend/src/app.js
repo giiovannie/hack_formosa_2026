@@ -40,6 +40,8 @@ import { createProductivityRouter } from './routes/productivity.routes.js';
 import { createProductivityControllers } from './controllers/productivity.controller.js';
 import { createExternalSourceRouter } from './routes/externalSource.routes.js';
 import { createExternalSourceControllers } from './controllers/externalSource.controller.js';
+import { createContextualizationRouter } from './routes/contextualization.routes.js';
+import { createContextualizationControllers } from './controllers/contextualization.controller.js';
 
 export const createApp = ({ database, models, config, externalFetch }) => {
   if (!config.FRONTEND_URL || !/^https?:$/.test(new URL(config.FRONTEND_URL).protocol)) {
@@ -78,6 +80,7 @@ export const createApp = ({ database, models, config, externalFetch }) => {
   app.use('/api/v1/tendencias', createTrendRouter(createTrendControllers(database, models), auth));
   app.use('/api/v1/productividad', createProductivityRouter(createProductivityControllers(models), auth));
   app.use('/api/v1/fuentes-externas', createExternalSourceRouter(createExternalSourceControllers(models, externalFetch), auth));
+  app.use('/api/v1/contextualizacion', createContextualizationRouter(createContextualizationControllers(database, models, externalFetch), auth));
   app.use((req, res) => res.status(404).json({ message: 'Recurso no encontrado' }));
   app.use(errorMiddleware);
   return app;
