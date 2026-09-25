@@ -98,7 +98,7 @@ export default function DashboardWidget({ widget, onRetry }) {
       <motion.div variants={contentSequenceVariants} className="mt-5">
         <motion.p variants={contentRiseVariants} className="text-sm font-medium text-[#64748B] dark:text-[#94A3B8]">{widget.title}</motion.p>
         <motion.p variants={contentRiseVariants} className={`mt-1 text-2xl font-bold tracking-tight ${isUnavailable ? "text-[#94A3B8]" : "text-[#1E293B] dark:text-[#F8FAFC]"}`}>{widget.value}</motion.p>
-      </div>
+      </motion.div>
       <motion.div variants={contentRiseVariants} className="mt-auto pt-4"><WidgetState widget={widget} onRetry={onRetry} /><WidgetVisual widget={widget} /></motion.div>
     </motion.article>
   )
