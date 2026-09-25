@@ -7,6 +7,7 @@ import DataEntry from "@/components/data-entry-and-upload"
 import DataQuality from "@/components/data-quality"
 import { dashboardWidgets } from "@/components/dashboard-data"
 import CompanyConfiguration from "@/components/Profile-and-empresarial-configuration"
+import Traceability from "@/components/traceability"
 
 function WidgetPicker({ visibleIds, onToggle }) {
   return (
@@ -32,7 +33,15 @@ export default function DashboardPage() {
   const retryWidget = (id) => setWidgets((current) => current.map((widget) => widget.id === id ? { ...widget, status: "loading" } : widget))
 
   if (activeView === "data-entry") {
-    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div><ProcessingDashboard embedded /></div>
+    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div></div>
+  }
+
+  if (activeView === "processing") {
+    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><ProcessingDashboard embedded /></div>
+  }
+
+  if (activeView === "traceability") {
+    return <div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><Traceability embedded /></div>
   }
 
   if (activeView === "data-quality") {

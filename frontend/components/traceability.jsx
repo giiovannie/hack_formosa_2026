@@ -31,7 +31,7 @@ function DetailRow({ label, value, mono = false }) {
   return <div className="flex flex-col gap-1 border-b border-[#202b39] py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between"><dt className="text-xs text-[#8490a3]">{label}</dt><dd className={`text-sm text-[#e7edf4] sm:text-right ${mono ? 'font-mono text-xs text-[#a9b7c8]' : ''}`}>{value}</dd></div>
 }
 
-export default function Page() {
+export default function Traceability({ embedded = false }) {
   const [showOrigin, setShowOrigin] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -39,7 +39,7 @@ export default function Page() {
   const handleRefresh = () => setMessage('Validación actualizada y persistida correctamente.')
 
   return <main className="min-h-screen bg-[#090d15] text-[#f3f5f7] selection:bg-[#ff6b19]/30">
-    <header className="border-b border-[#202b39] bg-[#0a0f18]/95"><div className="mx-auto flex h-[66px] max-w-[1180px] items-center justify-between px-5 lg:px-8"><Logo /><nav className="hidden items-center gap-8 text-sm text-[#8792a4] md:flex"><a className="hover:text-white" href="#dashboard">Dashboard</a><a className="text-[#e8edf3]" href="#fuentes">Fuentes</a><a className="hover:text-white" href="#calidad">Calidad de datos</a></nav><div className="flex items-center gap-4"><span className="hidden text-sm text-[#8f9bac] sm:block">Hola, Martina</span><button aria-label="Abrir ayuda" className="grid size-8 place-items-center rounded-full border border-[#293546] text-[#8490a3]"><CircleHelp size={16}/></button><div className="grid size-8 place-items-center rounded-full bg-[#293546] text-xs font-semibold text-[#dbe2ea]">ML</div></div></div></header>
+    {!embedded && <header className="border-b border-[#202b39] bg-[#0a0f18]/95"><div className="mx-auto flex h-[66px] max-w-[1180px] items-center justify-between px-5 lg:px-8"><Logo /><nav className="hidden items-center gap-8 text-sm text-[#8792a4] md:flex"><a className="hover:text-white" href="#dashboard">Dashboard</a><a className="text-[#e8edf3]" href="#fuentes">Fuentes</a><a className="hover:text-white" href="#calidad">Calidad de datos</a></nav><div className="flex items-center gap-4"><span className="hidden text-sm text-[#8f9bac] sm:block">Hola, Martina</span><button aria-label="Abrir ayuda" className="grid size-8 place-items-center rounded-full border border-[#293546] text-[#8490a3]"><CircleHelp size={16}/></button><div className="grid size-8 place-items-center rounded-full bg-[#293546] text-xs font-semibold text-[#dbe2ea]">ML</div></div></div></header>}
     <div className="mx-auto max-w-[1180px] px-5 py-8 lg:px-8 lg:py-10">
       <button onClick={handleBack} className="mb-7 inline-flex items-center gap-2 text-sm text-[#8e9aac] transition hover:text-white"><ArrowLeft size={16}/> Fuentes de información</button>
       {message && <div role="status" className="mb-5 flex items-center justify-between rounded-lg border border-[#6ee7b7]/25 bg-[#6ee7b7]/10 px-4 py-3 text-sm text-[#9af0c9]"><span>{message}</span><button aria-label="Cerrar mensaje" onClick={() => setMessage('')}><XCircle size={16}/></button></div>}
