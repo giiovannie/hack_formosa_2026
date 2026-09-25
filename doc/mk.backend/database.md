@@ -60,6 +60,10 @@ Toda entidad empresarial deberá poder relacionarse con la empresa correspondien
 
 # Entidades iniciales
 
+## BE E04 — Source
+
+Cada `Source` pertenece a una `Company` (Company 1:N Source), incluso cuando el tipo de fuente sea externa, para mantener la autorización y el aislamiento uniformes. Campos: `id` INT PK autoincremental; `companyId` INT NOT NULL FK; `name`, `origin`, `status` STRING NOT NULL; `type` STRING NOT NULL limitado a `internal`/`external`; `description` TEXT NULL; `sourceUpdatedAt` DATE NULL; `createdAt` y `updatedAt` de Sequelize. El estado es texto libre, sin catálogo en el MVP. La fuente usa `paranoid: true` e InnoDB, sin eliminación física en cascada. La relación Company→Source usa RESTRICT; se valida `companyId` desde autenticación. Al agregar importaciones, sus referencias a Source deben preservar trazabilidad y la baja de fuentes usadas debe rechazarse.
+
 ## BE E02 — CompanyProfile
 
 Decisión del usuario: Company 1 — 1 CompanyProfile, sin catálogos ni tablas auxiliares para sus valores. El perfil se configura mediante el primer PUT; antes de eso Company puede no tener perfil.

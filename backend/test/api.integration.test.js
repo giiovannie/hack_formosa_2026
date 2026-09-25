@@ -6,7 +6,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01/E02 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01/E02/E04 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -176,6 +176,46 @@ test('BE E01/E02 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('GET', '/empresa/perfil', undefined, memberCookie)).body.profile.companyId, companyA.body.company.id);
     assert.equal((await request('PUT', '/empresa/perfil', profileData, memberCookie)).status, 403);
     assert.equal((await request('PUT', '/empresa/perfil', profileData, cookieA, 'https://untrusted.example')).status, 403);
+  });
+  const sourceData = { name: 'Caja', type: 'internal', origin: 'Sucursal centro', description: 'CSV de ventas', status: 'disponible', sourceUpdatedAt: '2026-09-24T12:00:00.000Z' };
+  let sourceA;
+  await t.test('E04 owner creates and retrieves internal/external sources with isolated lists', async () => {
+    const response = await request('POST', '/fuentes', sourceData, cookieA);
+    assert.equal(response.status, 201, JSON.stringify(response.body));
+    sourceA = response.body.source;
+    assert.equal(sourceA.companyId, companyA.body.company.id);
+    assert.equal(sourceA.type, 'internal');
+    const external = await request('POST', '/fuentes', { ...sourceData, type: 'external', name: 'Índice público' }, cookieB);
+    assert.equal(external.status, 201);
+    assert.equal((await request('GET', `/fuentes/${sourceA.id}`, undefined, cookieA)).body.source.id, sourceA.id);
+    assert.equal((await request('GET', `/fuentes/${external.body.source.id}`, undefined, cookieA)).status, 404);
+    const listA = await request('GET', '/fuentes?page=1&limit=1', undefined, cookieA);
+    assert.equal(listA.body.pagination.total, 1);
+    assert.deepEqual(listA.body.sources.map((source) => source.companyId), [companyA.body.company.id]);
+  });
+  await t.test('E04 validates fields and rejects tenant injection', async () => {
+    assert.equal((await request('POST', '/fuentes', { ...sourceData, type: 'other' }, cookieA)).status, 400);
+    assert.equal((await request('POST', '/fuentes', { ...sourceData, companyId: companyB.body.company.id }, cookieA)).status, 400);
+    assert.equal((await request('POST', '/fuentes?companyId=999', sourceData, cookieA)).status, 400);
+    assert.equal((await request('POST', '/fuentes', { ...sourceData, status: '' }, cookieA)).status, 400);
+    assert.equal((await request('POST', '/fuentes', { ...sourceData, sourceUpdatedAt: 'invalid' }, cookieA)).status, 400);
+    assert.equal((await request('GET', '/fuentes?limit=101', undefined, cookieA)).status, 400);
+  });
+  await t.test('E04 only owner can change own source, edits and soft deletion persist', async () => {
+    assert.equal((await request('GET', '/fuentes', undefined, memberCookie)).status, 200);
+    assert.equal((await request('POST', '/fuentes', sourceData, memberCookie)).status, 403);
+    assert.equal((await request('PUT', `/fuentes/${sourceA.id}`, sourceData, memberCookie)).status, 403);
+    assert.equal((await request('DELETE', `/fuentes/${sourceA.id}`, undefined, memberCookie)).status, 403);
+    assert.equal((await request('PUT', `/fuentes/${sourceA.id}`, { ...sourceData, name: 'Caja editada', sourceUpdatedAt: undefined }, cookieB)).status, 404);
+    assert.equal((await request('DELETE', `/fuentes/${sourceA.id}`, undefined, cookieB)).status, 404);
+    const edited = await request('PUT', `/fuentes/${sourceA.id}`, { name: 'Caja editada', type: 'internal', origin: 'Centro', status: 'activa' }, cookieA);
+    assert.equal(edited.status, 200);
+    assert.equal(edited.body.source.name, 'Caja editada');
+    assert.equal(edited.body.source.description, null);
+    assert.equal(edited.body.source.sourceUpdatedAt, null);
+    assert.equal((await request('DELETE', `/fuentes/${sourceA.id}`, undefined, cookieA)).status, 200);
+    assert.equal((await request('GET', `/fuentes/${sourceA.id}`, undefined, cookieA)).status, 404);
+    assert.ok((await models.SourceModel.findByPk(sourceA.id, { paranoid: false })).deletedAt);
   });
   await t.test('last owner cannot be deleted or demoted', async () => {
     assert.equal((await request('DELETE', `/usuarios/${companyA.body.user.id}`, undefined, cookieA)).status, 409);

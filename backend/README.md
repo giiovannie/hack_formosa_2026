@@ -28,3 +28,7 @@ Cubre registro y rollback, unicidad, validaciones, paginación, roles, aislamien
 `GET` y `PUT /api/v1/empresa/perfil` consultan y guardan el perfil de la empresa autenticada. El PUT es exclusivo de owners; el contrato y nombres de campos están en `doc/api-contract.md`. Las listas se guardan como JSON en una única tabla `CompanyProfiles`, con `companyId` único.
 
 Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa tabla. Las tablas existentes se conservan. La suite de integración incluye persistencia, validación de listas, aislamiento y creación concurrente del perfil.
+
+## BE E04 — Fuentes de datos
+
+`/api/v1/fuentes` permite consultar fuentes a usuarios autenticados y crear, editar o dar de baja fuentes a owners de la empresa. Usa eliminación lógica y distingue `internal` de `external`. `npm run db:init` crea la tabla `Sources` en bases existentes sin alterar las anteriores. El contrato está en `doc/api-contract.md`. Las importaciones futuras deben impedir la baja de una fuente que ya referencien.

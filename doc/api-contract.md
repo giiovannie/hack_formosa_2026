@@ -1,5 +1,21 @@
 # API-CONTRACT.md
 
+## BE E04 — Gestión de fuentes (IMPLEMENTADO)
+
+Tarjeta: https://trello.com/c/MKdsN0Z8 (136). Base `/api/v1/fuentes`; usuario autenticado consulta, `owner` crea, actualiza y elimina fuentes de su empresa. El tenant siempre proviene de la sesión.
+
+Campos JSON: `name` (nombre, texto no vacío, máximo 255), `type` (`internal` o `external`), `origin` (origen, texto no vacío, máximo 255), `description` (descripción, texto opcional, máximo 2000), `status` (estado, texto libre no vacío, máximo 100), `sourceUpdatedAt` (fecha de actualización de la fuente, ISO 8601 opcional). `status` es descriptivo; no se inventa un catálogo. El tiempo de cambio del registro se representa por `updatedAt` gestionado por Sequelize. No aceptar `companyId` en body ni query.
+
+| Método | Ruta | Entrada | Respuesta |
+| --- | --- | --- | --- |
+| GET | `/fuentes` | `page` (1), `limit` (10, máximo 100) | 200 `{ message, sources, pagination }` |
+| GET | `/fuentes/:id` | ID entero positivo | 200 `{ message, source }` |
+| POST | `/fuentes` | Campos `name`, `type`, `origin`, `status`; `description` y `sourceUpdatedAt` opcionales | 201 `{ message, source }` |
+| PUT | `/fuentes/:id` | Mismos campos de POST; reemplazo completo | 200 `{ message, source }` |
+| DELETE | `/fuentes/:id` | ID entero positivo | 200 `{ message }`; eliminación lógica si no existen datos asociados |
+
+Fuente pública: `id`, `companyId`, esos seis campos y `createdAt`/`updatedAt`. Una fuente ajena o inactiva responde 404. 400 para validaciones, 401 para sesión inválida, 403 para rol insuficiente, 500 sin detalles internos. Las importaciones posteriores deben referenciar la fuente y bloquear su eliminación cuando haya datos asociados.
+
 ## BE E02 — Perfil y configuración empresarial (IMPLEMENTADO)
 
 Tarjeta: https://trello.com/c/M8COh8Y5 (132). Perfil único por empresa, obtenida exclusivamente del usuario autenticado. JSON en inglés: `industry` corresponde a rubro; `areas` a áreas; `availableData` a datos disponibles; `analysisObjectives` a objetivos de análisis.
