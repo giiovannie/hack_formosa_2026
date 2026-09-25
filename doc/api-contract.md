@@ -1241,6 +1241,24 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E14 — Tendencias y estimaciones
+
+Respuesta `200`: `{ message, analysis: { metric, field, from, to, interval, filters, status, trend, estimate, evidence } }`. Con al menos tres puntos históricos seguros, `status` es `estimated`; `trend` contiene `direction` (`increasing`, `decreasing`, `stable`), `slopePerInterval` y `method: "least_squares_linear"`. `estimate` contiene `kind: "estimate"`, el siguiente período, `value` y el método. `evidence` conserva los puntos históricos reales usados. La extrapolación lineal es descriptiva y no garantiza resultados futuros. Las estimaciones de conteos negativos se limitan a cero. Los cálculos usan números finitos de magnitud hasta 10¹²; fuera de ese rango se devuelve `not_estimable` sin estimación. Con menos de tres puntos se devuelve `insufficient_data` sin tendencia ni estimación.
+
+La consulta no modifica históricos. Parámetros inválidos responden `400`; fuente ajena o inexistente, `404`.
+
+---
+
+## BE E13 — Detección de patrones
+
+`GET /api/v1/patrones?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` requiere sesión y reutiliza los filtros, métricas y períodos UTC de E12 sobre registros procesados de la empresa. Acepta como máximo 120 intervalos.
+
+Respuesta `200`: `{ message, analysis: { metric, field, interval, from, to, filters, status, observedPeriods, patterns } }`. `status` es `insufficient_data` cuando hay menos de tres intervalos con datos, o `analyzed`. En el MVP solo se identifica `repeated_value`: el mismo valor exacto de la métrica observado en tres o más intervalos con datos. Cada patrón incluye `value`, `occurrences` y `evidence` con `period`, `value` e `includedRecords`. Una lista vacía de patrones significa que no se observó esa recurrencia; no implica ausencia de otros comportamientos. El resultado es una observación descriptiva, no una predicción ni una inferencia causal.
+
+Parámetros inválidos responden `400`; fuente ajena o inexistente, `404`. El análisis no modifica históricos.
+
+---
+
 ## BE E12 — Históricos y comparaciones
 
 Las consultas requieren sesión, usan `companyId` autenticado y reutilizan las métricas configurables de E11 sobre `ProcessedRecord`. Los períodos se aplican a la fecha de persistencia UTC, con límites inclusivos `AAAA-MM-DD`. `dataType` y `sourceId` son filtros opcionales. `metric` admite `count`, `sum`, `average`, `min`, `max`; `field` se requiere para métricas numéricas y se prohíbe para `count`.
@@ -1385,3 +1403,59 @@ mínimo dato necesario
 ```
 
 `API-CONTRACT.md` deberá contener solamente la información necesaria para que los distintos dominios compartan una misma estructura sin reinterpretaciones.
+
+---
+
+## BE E15 — Productividad
+
+
+
+`GET /api/v1/productividad?from=&to=&interval=day|month|year&dataType=&sourceId=&areaField=&area=&operationField=&employeeField=&employee=` requiere sesión. `from`, `to`, `interval` y `dataType` son obligatorios. `areaField`, `operationField` y `employeeField` indican los nombres de columnas de los registros procesados; `area` requiere `areaField`, y `employee` y `employeeField` deben enviarse juntos. La empresa se obtiene de la sesión. `sourceId` y `dataType` restringen los registros de esa empresa. Las fechas corresponden a la persistencia UTC de cada registro.
+
+Respuesta `200`: `{ message, indicators: { dataType, from, to, interval, filters, totalOperations, averagePerObservedPeriod, periods, byArea, byOperation, missingArea, missingOperation, interpretation: "descriptive" } }`. `periods` contiene `{ period, count }` por intervalo observado; `byArea` y `byOperation` contienen recuentos por valor textual. El promedio usa únicamente períodos con registros y es `null` si no hay ninguno. Los campos ausentes se contabilizan por separado. Es un indicador descriptivo de operaciones registradas, sin puntuación ni clasificación de empleados y sin inferir un esquema de negocio. Filtros inválidos responden `400`; una fuente inexistente o ajena, `404`.
+
+
+`GET /api/v1/tendencias?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` requiere sesión y reutiliza E12: series de registros procesados, filtros por empresa/fuente/tipo, período UTC y máximo 120 intervalos. `metric` admite las métricas E11; las numéricas requieren `field`.
+
+---
+
+## BE E16 — Fuentes externas oficiales
+
+`GET /api/v1/fuentes-externas` devuelve las cinco fuentes autorizadas: Estadística Formosa, Datos Argentina, CKAN, Georef y Series de Tiempo. Cada elemento indica `id`, `name`, `type`, `origin`, `status` y `sourceUpdatedAt` (`null` si se desconoce). Este catálogo es distinto de las fuentes de datos de cada empresa (`/fuentes`). Todas las rutas requieren sesión.
+
+`GET /api/v1/fuentes-externas/datos-argentina-georef/consultar?nombre=Formosa` consulta únicamente el endpoint fijo oficial `/georef/api/provincias` con `max=1` y campos `id,nombre`. `nombre` es opcional (por defecto `Formosa`), texto no vacío de hasta 80 caracteres. Respuesta `200`: `{ message, queryId, provenance: { kind: "external", sourceId, name, origin, consultedAt, sourceUpdatedAt }, data: { provincias } }`. La respuesta no se incorpora a los registros internos. Se registra cada intento de red en `ExternalQueries`, con empresa, usuario, fuente, parámetros, estado y fecha. `GET /api/v1/fuentes-externas/consultas` devuelve hasta 100 intentos recientes de la empresa autenticada, sin contenido externo.
+
+Fuentes no autorizadas responden `404`; fuentes autorizadas sin adaptador, `409`; fallo del proveedor, `502` con `queryId`. No se consulta una URL arbitraria enviada por el cliente, ni se realiza scraping. Solo Georef dispone de adaptador en este MVP; los demás registros preparan ampliaciones posteriores.
+
+---
+
+## BE E17 — Contextualización temporal
+
+`GET /api/v1/contextualizacion?from=&to=&interval=day|month|year&metric=count|sum|average|min|max&field=&dataType=&sourceId=&externalSourceId=datos-argentina-series&seriesId=` requiere sesión. Reutiliza filtros, métricas y máximo 120 intervalos de E12 para los registros procesados de la empresa. `field` se requiere solo para métricas numéricas. `seriesId` es un ID de serie oficial elegido por el cliente y se limita a caracteres alfanuméricos, punto, guion y guion bajo. El Backend consulta el endpoint fijo oficial de Series de Tiempo, con el mismo período e intervalo, y registra el intento en el historial E16.
+
+Respuesta `200`: `{ message, context: { period, internal: { metric, field, filters, points }, external: { provenance, points }, observedOverlap, status, interpretation } }`. `observedOverlap` muestra únicamente períodos que tienen un valor interno y otro externo; conserva las unidades por separado. `status` es `observed` con al menos dos coincidencias o `insufficient_overlap` en otro caso. No se calcula causalidad ni se afirma comparabilidad de unidades. Fuente no autorizada: `404`; fuente sin serie temporal: `409`; fallo del proveedor: `502` con ID de consulta; parámetros inválidos: `400`. El contenido externo no se almacena como registro interno.
+---
+
+## BE E19 — Alertas por umbral configurable
+
+`POST /api/v1/alertas/evaluar` requiere sesión y JSON `{ metric, field?, operator, threshold, from, to, dataType?, sourceId? }`. `metric` usa `count|sum|average|min|max` de E11; `field` es obligatorio para métricas numéricas y no se admite con `count`. `operator` acepta `lt|lte|gt|gte`; `threshold` es decimal en texto. `from` y `to` son fechas UTC `AAAA-MM-DD`, inclusivas, aplicadas a la persistencia de registros procesados. La empresa proviene exclusivamente de la sesión. No se infieren campos de stock, ventas ni gastos: el cliente configura la condición sobre datos disponibles.
+
+Si no hay registros evaluables, responde `200` con `evaluation.status: "insufficient_data"` y `alert: null`. Si la condición no se cumple, `200` con `status: "not_triggered"`. Si se cumple, `201` con `status: "triggered"` y la alerta persistida. Cada evaluación devuelve `condition` y `evidence: { value, includedRecords, skippedRecords }`. Solo las condiciones cumplidas con evidencia crean una alerta de tipo `metric_threshold` y estado `active`.
+
+`GET /api/v1/alertas?status=active|acknowledged` lista hasta 100 alertas de la empresa; `GET /api/v1/alertas/:id` consulta una; `PATCH /api/v1/alertas/:id/reconocer` cambia su estado a `acknowledged`. Acceso ajeno o alerta inexistente: `404`. Condiciones inválidas: `400`; fuente de datos ajena o inexistente: `404`. No se crean alertas automáticas sin condición explícita.
+---
+
+## BE E20 — Respaldo y restauración de empresa
+
+Todas las rutas requieren sesión de `owner`; la empresa se obtiene de la sesión. `POST /api/v1/respaldos` crea un archivo JSON privado en `backend/backups/`, con permisos restringidos y nombre aleatorio, y registra en MySQL metadatos con `id`, `companyId`, `createdById`, estado `ready`, tipo `manual` y fecha. La respuesta `201` devuelve solo metadatos públicos, nunca ruta, nombre de archivo, hash ni contenido. `GET /api/v1/respaldos` lista hasta 100 respaldos propios. No existe descarga ni ruta pública de archivos.
+
+El contenido incluye nombre de empresa, usuarios (incluidos hashes de contraseña), perfil, fuentes, importaciones, ejecuciones ETL, registros procesados, alertas, consultas externas y exportaciones, con sus relaciones y fechas. Los metadatos de respaldos y eventos de restauración no se reemplazan. Los respaldos nuevos usan versión 2; los de versión 1 siguen siendo restaurables sin historial de exportaciones. El archivo tiene límite de 100 MiB y SHA-256 para detectar alteraciones; no se guardan credenciales en la API. El directorio está ignorado por Git y debe ser privado en el despliegue.
+
+`POST /api/v1/respaldos/:id/restaurar` exige `{ "confirm": true }`. Comprueba que el respaldo sea de la empresa autenticada y que su archivo conserve integridad. Antes de reemplazar crea automáticamente otro respaldo `pre_restore` del estado actual. Después, en la misma transacción MySQL, reemplaza solo los datos de esa empresa y agrega un evento de restauración con `backupId`, `safetyBackupId`, `performedById` y fecha. La respuesta `200` devuelve estos identificadores. Una falla de restauración revierte la transacción y elimina el archivo automático no confirmado. Restaurar usuarios puede devolver contraseñas y roles al estado respaldado; las sesiones se validan contra los usuarios actuales en cada solicitud. `GET /api/v1/respaldos/restauraciones` lista hasta 100 eventos propios. Respaldo ajeno o inexistente: `404`; falta de permisos: `403`; confirmación inválida: `400`; archivo ausente o alterado: `409`.
+---
+
+## BE E21 — Exportación CSV
+
+`POST /api/v1/exportaciones` requiere sesión y JSON `{ kind, format: "csv", from?, to?, dataType?, sourceId?, metric?, field?, interval? }`. `kind` acepta `records`, `metric` o `history`. `records` exporta registros procesados con identificadores de fuente/importación/ETL, fecha UTC y `values` JSON en una celda; máximo 10 000 registros. `metric` exporta una métrica E11. `history` exporta una serie histórica E12 y exige `from`, `to` e `interval=day|month|year`. Para los últimos dos se exige `metric=count|sum|average|min|max`, con `field` solo en métricas numéricas. Los filtros se aplican exclusivamente a la empresa autenticada y a la fecha de persistencia UTC.
+
+La respuesta `200` es un adjunto `text/csv` UTF-8 con encabezados, `Cache-Control: no-store` y `X-Export-Id`. El CSV neutraliza fórmulas de planilla y limita el archivo a 20 MiB. No se crea un archivo público. Se registra `ExportRecord` con empresa, usuario, tipo, formato, filtros, cantidad de filas, estado `completed` y fecha. `GET /api/v1/exportaciones` lista hasta 100 exportaciones propias, sin contenido. Formato o combinación inválida: `400`; fuente ajena o inexistente: `404`; límite de tamaño: `413`. PDF, Excel e imagen quedan fuera del MVP.

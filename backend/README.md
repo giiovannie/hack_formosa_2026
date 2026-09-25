@@ -40,6 +40,22 @@ Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa ta
 Se agregó `multer` porque la API recibe archivos multipart. Limita CSV a 1 MiB en memoria; el Backend no transforma ni clasifica sus filas. Consultar `doc/api-contract.md` para los campos y respuestas.
 # ETL (BE E05)
 
+BE E21 entrega CSV autenticado en `/api/v1/exportaciones` para registros procesados, métricas E11 y series históricas E12. Respeta empresa, fuente, tipo y período; registra cada archivo generado en `ExportRecords`. El CSV se descarga directamente, sin archivo público ni exportación de datos crudos o contraseñas.
+
+BE E20 guarda respaldos privados por empresa en `backend/backups/` (ignorado por Git) y metadatos en MySQL. Solo el owner puede crearlos o restaurarlos. La restauración crea primero un respaldo automático, reemplaza los datos de esa empresa en una transacción y registra el evento. Incluye empresa, usuarios, perfil, fuentes, importaciones, ETL, registros, alertas, consultas externas y exportaciones; los metadatos de respaldo y la bitácora de restauración permanecen fuera del contenido restaurado. El directorio debe conservar acceso restringido y copias operativas fuera de la base de datos.
+
+BE E19 permite evaluar umbrales explícitos sobre métricas E11 en `/api/v1/alertas/evaluar`. Solo persiste una alerta si hay datos y la condición se cumple; conserva evidencia, período y estado `active` o `acknowledged`, siempre por empresa.
+
+BE E17 expone `/api/v1/contextualizacion` para contrastar una serie interna de E12 con un ID de serie oficial de Datos Argentina provisto por el cliente. Muestra solo coincidencias temporales observadas, procedencia de ambas partes y una advertencia expresa de que la coincidencia no demuestra causalidad.
+
+BE E16 expone el catálogo oficial autorizado en `/api/v1/fuentes-externas` y una consulta demostrativa a Georef en `/api/v1/fuentes-externas/datos-argentina-georef/consultar?nombre=Formosa`. Cada intento queda en `ExternalQueries` por empresa; los datos externos se devuelven con procedencia explícita y no se mezclan con los registros internos. Los portales y APIs sin adaptador específico permanecen registrados, sin scraping.
+
+BE E15 expone indicadores descriptivos de productividad en `/api/v1/productividad`. Cuenta registros procesados por período, área y tipo de operación usando columnas elegidas por el cliente; permite filtrar por empleado sin asignar puntuaciones.
+
+BE E14 expone análisis de tendencia en `/api/v1/tendencias`. Usa regresión lineal simple sobre la serie E12, separa puntos reales de la estimación del siguiente intervalo y devuelve estado de información insuficiente cuando corresponde.
+
+BE E13 analiza recurrencias exactas en series históricas con `/api/v1/patrones`. Exige al menos tres períodos con datos y adjunta los períodos que respaldan cada recurrencia; no crea predicciones ni modifica históricos.
+
 BE E12 compara dos períodos y genera series diarias, mensuales o anuales en `/api/v1/historicos`, reutilizando las métricas E11 sobre la fecha de persistencia UTC. Las consultas no modifican históricos y omiten intervalos sin datos.
 
 BE E11 ofrece métricas configurables en `/api/v1/metricas` sobre registros procesados. `count` cuenta registros; `sum`, `average`, `min` y `max` requieren una columna numérica explícita y devuelven cadenas decimales, con cantidad de valores omitidos.

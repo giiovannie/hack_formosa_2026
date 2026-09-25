@@ -1,13 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
+import { mkdtemp, readdir, readFile, writeFile, unlink, rmdir } from 'node:fs/promises';
 import mysql from 'mysql2/promise';
 import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E12 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E21 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -21,6 +23,7 @@ test('BE E01–E12 HTTP contracts and isolation on real MySQL', async (t) => {
   let created = false;
   let database;
   let server;
+  const backupDir = await mkdtemp(path.join(tmpdir(), 'formo-backup-test-'));
   t.after(async () => {
     try {
       if (server) await new Promise((resolve) => server.close(resolve));
@@ -28,7 +31,11 @@ test('BE E01–E12 HTTP contracts and isolation on real MySQL', async (t) => {
       if (created && /^be_e01_test_[a-f0-9]{20}$/.test(name)) {
         await admin.query(`DROP DATABASE \`${name}\``);
       }
-    } finally { await admin.end(); }
+    } finally {
+      await admin.end();
+      for (const file of await readdir(backupDir)) await unlink(path.join(backupDir, file));
+      await rmdir(backupDir);
+    }
   });
   await admin.query(`CREATE DATABASE \`${name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
   created = true;
@@ -38,7 +45,22 @@ test('BE E01–E12 HTTP contracts and isolation on real MySQL', async (t) => {
   await database.sync();
   const config = { JWT_SECRET: randomBytes(32).toString('hex'), JWT_EXPIRES_IN: '1h', FRONTEND_URL: 'http://localhost:5173', NODE_ENV: 'production',
     PYTHON_EXECUTABLE: process.env.TEST_PYTHON_EXECUTABLE || path.join(process.cwd(), '.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python') };
-  const app = createApp({ database, models, config });
+  let externalFailure = false;
+  const externalFetch = async (url, options) => {
+    assert.equal(url.origin, 'https://apis.datos.gob.ar');
+    assert.equal(options.redirect, 'error');
+    if (externalFailure) throw new Error('Proveedor indisponible');
+    if (url.pathname === '/series/api/series') {
+      assert.equal(url.searchParams.get('ids'), 'serie_oficial_1');
+      return new Response(JSON.stringify({ data: [['2026-08-01', 30], ['2026-09-01', 40]] }),
+        { status: 200, headers: { 'content-type': 'application/json' } });
+    }
+    assert.equal(url.pathname, '/georef/api/provincias');
+    assert.equal(url.searchParams.get('max'), '1');
+    return new Response(JSON.stringify({ provincias: [{ id: '34', nombre: 'Formosa' }] }),
+      { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const app = createApp({ database, models, config, externalFetch, backupDir });
   server = await new Promise((resolve) => { const instance = app.listen(0, '127.0.0.1', () => resolve(instance)); });
   const base = `http://127.0.0.1:${server.address().port}/api/v1`;
   const request = async (method, path, data, cookie, origin) => {
@@ -223,10 +245,10 @@ test('BE E01–E12 HTTP contracts and isolation on real MySQL', async (t) => {
   let importId;
   let tracedRecordId;
   let traceImportId;
-  const uploadCsv = async (cookie, sourceId, filename, content, extra = {}) => {
+  const uploadCsv = async (cookie, sourceId, filename, content, extra = {}, dataType = 'sales') => {
     const form = new FormData();
     form.set('sourceId', String(sourceId));
-    form.set('dataType', 'sales');
+    form.set('dataType', dataType);
     form.set('metadata', JSON.stringify({ period: '2026-09', ...extra }));
     if (content !== null) form.set('file', new Blob([content], { type: 'text/csv' }), filename);
     const response = await fetch(`${base}/datos/importaciones`, { method: 'POST', headers: { Cookie: cookie }, body: form });
@@ -521,6 +543,232 @@ test('BE E01–E12 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('GET', '/historicos/comparar?metric=count&fromA=2026-08-31&toA=2026-08-01&fromB=2026-09-01&toB=2026-09-30', undefined, cookieA)).status, 400);
     assert.equal((await request('GET', '/historicos/serie?metric=count&interval=month&from=2026-08-01&to=2026-09-30')).status, 401);
     assert.equal((await models.ProcessedRecordModel.findByPk(tracedRecordId)).createdAt.toISOString(), '2026-08-15T12:00:00.000Z');
+  });
+  await t.test('E13 reports observed recurrence with evidence or insufficient history', async () => {
+    const records = await models.ProcessedRecordModel.findAll({ where: { companyId: companyA.body.company.id }, order: [['id', 'ASC']] });
+    assert.equal(records.length, 4);
+    for (const [index, record] of records.entries()) {
+      await models.ProcessedRecordModel.update({ createdAt: new Date(`2026-${String(8 + index).padStart(2, '0')}-15T12:00:00.000Z`) },
+        { where: { id: record.id } });
+    }
+    const path = '/patrones?metric=count&interval=month&from=2026-08-01&to=2026-11-30';
+    const result = await request('GET', path, undefined, cookieA);
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(result.body.analysis.status, 'analyzed');
+    assert.equal(result.body.analysis.observedPeriods, 4);
+    assert.equal(result.body.analysis.patterns.length, 1);
+    assert.equal(result.body.analysis.patterns[0].occurrences, 4);
+    assert.deepEqual(result.body.analysis.patterns[0].evidence.map(({ period, value }) => ({ period, value })), [
+      { period: '2026-08', value: 1 }, { period: '2026-09', value: 1 },
+      { period: '2026-10', value: 1 }, { period: '2026-11', value: 1 },
+    ]);
+    const limited = await request('GET', '/patrones?metric=count&interval=month&from=2026-08-01&to=2026-09-30', undefined, cookieA);
+    assert.equal(limited.body.analysis.status, 'insufficient_data');
+    assert.deepEqual(limited.body.analysis.patterns, []);
+    assert.equal((await request('GET', path, undefined, cookieB)).body.analysis.status, 'insufficient_data');
+    assert.equal((await request('GET', path)).status, 401);
+    assert.equal((await request('GET', '/patrones?metric=count&interval=day&from=2026-01-01&to=2026-05-01', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/patrones?metric=sum&interval=month&from=2026-08-01&to=2026-11-30', undefined, cookieA)).status, 400);
+    assert.equal((await models.ProcessedRecordModel.findByPk(records[0].id)).createdAt.toISOString(), '2026-08-15T12:00:00.000Z');
+  });
+  await t.test('E14 distinguishes trend estimate from supported historical points', async () => {
+    const path = '/tendencias?metric=count&interval=month&from=2026-08-01&to=2026-11-30';
+    const result = await request('GET', path, undefined, cookieA);
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(result.body.analysis.status, 'estimated');
+    assert.equal(result.body.analysis.trend.direction, 'stable');
+    assert.equal(result.body.analysis.estimate.kind, 'estimate');
+    assert.equal(result.body.analysis.estimate.period, '2026-12');
+    assert.equal(result.body.analysis.estimate.value, 1);
+    assert.equal(result.body.analysis.evidence.length, 4);
+    assert.equal(result.body.analysis.evidence.every((point) => point.value === 1), true);
+    const numeric = await request('GET', '/tendencias?metric=sum&field=quantity&interval=month&from=2026-08-01&to=2026-11-30', undefined, cookieA);
+    assert.equal(numeric.body.analysis.status, 'estimated');
+    assert.equal(numeric.body.analysis.evidence.length, 3);
+    const limited = await request('GET', '/tendencias?metric=count&interval=month&from=2026-08-01&to=2026-09-30', undefined, cookieA);
+    assert.equal(limited.body.analysis.status, 'insufficient_data');
+    assert.equal(limited.body.analysis.estimate, null);
+    assert.equal((await request('GET', path, undefined, cookieB)).body.analysis.status, 'insufficient_data');
+    assert.equal((await request('GET', path)).status, 401);
+    assert.equal((await request('GET', '/tendencias?metric=count&interval=week&from=2026-08-01&to=2026-11-30', undefined, cookieA)).status, 400);
+    const before = await models.ProcessedRecordModel.count({ where: { companyId: companyA.body.company.id } });
+    await request('GET', path, undefined, cookieA);
+    assert.equal(await models.ProcessedRecordModel.count({ where: { companyId: companyA.body.company.id } }), before);
+  });
+  await t.test('E15 reports descriptive operations by period and area without scoring people', async () => {
+    const csv = await uploadCsv(cookieA, importSource.id, 'operations.csv',
+      'area,employee,operation\nNorte,Ana,sale\nNorte,Ana,return\nSur,Beto,production\n', {}, 'operations');
+    assert.equal(csv.status, 201);
+    const id = csv.body.dataImport.id;
+    assert.equal((await request('POST', `/etl/procesar/${id}`, undefined, cookieA)).body.process.status, 'completed');
+    assert.equal((await request('POST', `/calidad/${id}/validar`, {}, cookieA)).body.quality.validRecords, 3);
+    assert.equal((await request('POST', `/datos-procesados/importaciones/${id}`, undefined, cookieA)).body.persistedRecords, 3);
+    const rows = await models.ProcessedRecordModel.findAll({ where: { dataImportId: id }, order: [['id', 'ASC']] });
+    await models.ProcessedRecordModel.update({ createdAt: new Date('2026-08-15T12:00:00.000Z') }, { where: { id: rows[0].id } });
+    await models.ProcessedRecordModel.update({ createdAt: new Date('2026-09-15T12:00:00.000Z') }, { where: { id: rows[1].id } });
+    await models.ProcessedRecordModel.update({ createdAt: new Date('2026-09-16T12:00:00.000Z') }, { where: { id: rows[2].id } });
+    const path = '/productividad?from=2026-08-01&to=2026-09-30&interval=month&dataType=operations&areaField=area&operationField=operation';
+    const result = await request('GET', path, undefined, cookieA);
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(result.body.indicators.interpretation, 'descriptive');
+    assert.equal(result.body.indicators.totalOperations, 3);
+    assert.equal(result.body.indicators.averagePerObservedPeriod, 1.5);
+    assert.deepEqual(result.body.indicators.periods, [{ period: '2026-08', count: 1 }, { period: '2026-09', count: 2 }]);
+    assert.deepEqual(result.body.indicators.byArea, [{ area: 'Norte', count: 2 }, { area: 'Sur', count: 1 }]);
+    assert.equal(result.body.indicators.byOperation.length, 3);
+    const employee = await request('GET', `${path}&employeeField=employee&employee=Ana`, undefined, cookieA);
+    assert.equal(employee.body.indicators.totalOperations, 2);
+    assert.equal((await request('GET', `${path}&area=Sur`, undefined, cookieA)).body.indicators.totalOperations, 1);
+    assert.equal((await request('GET', path, undefined, cookieB)).body.indicators.totalOperations, 0);
+    assert.equal((await request('GET', path)).status, 401);
+    assert.equal((await request('GET', '/productividad?from=2026-08-01&to=2026-09-30&interval=month&dataType=operations&area=Sur', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/productividad?from=2026-08-01&to=2026-09-30&interval=month&dataType=operations&employee=Ana', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/productividad?from=2026-08-01&to=2026-09-30&interval=month', undefined, cookieA)).status, 400);
+  });
+  await t.test('E16 uses only approved sources, records consultations and isolates external data', async () => {
+    const catalog = await request('GET', '/fuentes-externas', undefined, cookieA);
+    assert.equal(catalog.status, 200);
+    assert.equal(catalog.body.sources.length, 5);
+    assert.ok(catalog.body.sources.every((source) => source.origin.startsWith('https://')));
+    assert.equal((await request('GET', '/fuentes-externas')).status, 401);
+    assert.equal((await request('GET', '/fuentes-externas/no-autorizada/consultar', undefined, cookieA)).status, 404);
+    assert.equal((await request('GET', '/fuentes-externas/estadistica-formosa/consultar', undefined, cookieA)).status, 409);
+    const found = await request('GET', '/fuentes-externas/datos-argentina-georef/consultar?nombre=Formosa', undefined, cookieA);
+    assert.equal(found.status, 200, JSON.stringify(found.body));
+    assert.equal(found.body.provenance.kind, 'external');
+    assert.equal(found.body.provenance.sourceId, 'datos-argentina-georef');
+    assert.equal(found.body.data.provincias[0].nombre, 'Formosa');
+    const historyA = await request('GET', '/fuentes-externas/consultas', undefined, cookieA);
+    const historyB = await request('GET', '/fuentes-externas/consultas', undefined, cookieB);
+    assert.equal(historyA.body.queries.length, 1);
+    assert.equal(historyA.body.queries[0].status, 'success');
+    assert.equal(historyB.body.queries.length, 0);
+    externalFailure = true;
+    const failed = await request('GET', '/fuentes-externas/datos-argentina-georef/consultar', undefined, cookieB);
+    assert.equal(failed.status, 502);
+    assert.equal((await request('GET', '/fuentes-externas/consultas', undefined, cookieB)).body.queries[0].status, 'failed');
+    assert.equal((await request('GET', '/fuentes-externas/consultas', undefined, cookieA)).body.queries.length, 1);
+    externalFailure = false;
+  });
+  await t.test('E17 relates observed periods without claiming causality or mixing tenants', async () => {
+    const path = '/contextualizacion?from=2026-08-01&to=2026-09-30&interval=month&metric=count&dataType=operations&externalSourceId=datos-argentina-series&seriesId=serie_oficial_1';
+    const result = await request('GET', path, undefined, cookieA);
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(result.body.context.status, 'observed');
+    assert.equal(result.body.context.observedOverlap.length, 2);
+    assert.equal(result.body.context.observedOverlap[0].internalValue, 1);
+    assert.equal(result.body.context.observedOverlap[1].externalValue, 40);
+    assert.equal(result.body.context.external.provenance.kind, 'external');
+    assert.match(result.body.context.interpretation, /no demuestra causalidad/);
+    assert.equal((await request('GET', path, undefined, cookieB)).body.context.status, 'insufficient_overlap');
+    assert.equal((await request('GET', path)).status, 401);
+    assert.equal((await request('GET', path.replace('datos-argentina-series', 'otra-fuente'), undefined, cookieA)).status, 404);
+    assert.equal((await request('GET', path.replace('datos-argentina-series', 'datos-argentina-georef'), undefined, cookieA)).status, 409);
+    assert.equal((await request('GET', path.replace('serie_oficial_1', 'bad,id'), undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/fuentes-externas/consultas', undefined, cookieA)).body.queries[0].queryType, 'historical_series');
+  });
+  await t.test('E19 records only evidenced threshold alerts and keeps their status tenant scoped', async () => {
+    const condition = { metric: 'count', operator: 'lt', threshold: '2', from: '2026-08-01', to: '2026-08-31', dataType: 'operations' };
+    const created = await request('POST', '/alertas/evaluar', condition, cookieA);
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    assert.equal(created.body.evaluation.evidence.value, 1);
+    assert.equal(created.body.evaluation.alert.status, 'active');
+    const alertId = created.body.evaluation.alert.id;
+    assert.equal((await request('GET', `/alertas/${alertId}`, undefined, cookieB)).status, 404);
+    assert.equal((await request('PATCH', `/alertas/${alertId}/reconocer`, {}, cookieB)).status, 404);
+    assert.equal((await request('GET', '/alertas', undefined, cookieB)).body.alerts.length, 0);
+    assert.equal((await request('GET', '/alertas?status=active', undefined, cookieA)).body.alerts.length, 1);
+    const acknowledged = await request('PATCH', `/alertas/${alertId}/reconocer`, {}, cookieA);
+    assert.equal(acknowledged.body.alert.status, 'acknowledged');
+    assert.equal((await request('GET', '/alertas?status=active', undefined, cookieA)).body.alerts.length, 0);
+    const missing = await request('POST', '/alertas/evaluar', { ...condition, from: '2026-07-01', to: '2026-07-31' }, cookieA);
+    assert.equal(missing.body.evaluation.status, 'insufficient_data');
+    assert.equal((await request('GET', '/alertas', undefined, cookieA)).body.alerts.length, 1);
+    const notTriggered = await request('POST', '/alertas/evaluar', { ...condition, operator: 'gt', threshold: '5' }, cookieA);
+    assert.equal(notTriggered.body.evaluation.status, 'not_triggered');
+    assert.equal((await request('POST', '/alertas/evaluar', condition, cookieB)).body.evaluation.status, 'insufficient_data');
+    assert.equal((await request('POST', '/alertas/evaluar', { ...condition, sourceId: 2147483647 }, cookieA)).status, 404);
+    assert.equal((await request('POST', '/alertas/evaluar', { ...condition, operator: 'unknown' }, cookieA)).status, 400);
+    assert.equal((await request('GET', '/alertas')).status, 401);
+  });
+  await t.test('E20 backs up and replaces one tenant, preserving a pre-restore snapshot and audit', async () => {
+    const created = await request('POST', '/respaldos', {}, cookieA);
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const backupId = created.body.backup.id;
+    assert.equal(created.body.backup.fileName, undefined);
+    assert.equal((await request('POST', '/respaldos', {}, memberCookie)).status, 403);
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, cookieB)).status, 404);
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, memberCookie)).status, 403);
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, {}, cookieA)).status, 400);
+    const additional = await request('POST', '/fuentes', { ...sourceData, name: 'Posterior al respaldo' }, cookieA);
+    assert.equal(additional.status, 201);
+    const metadata = await models.BackupModel.findByPk(backupId);
+    const file = path.join(backupDir, metadata.fileName);
+    const original = await readFile(file, 'utf8');
+    const companyBSourceCount = await models.SourceModel.count({ where: { companyId: companyB.body.company.id } });
+    await writeFile(file, `${original} `);
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, cookieA)).status, 409);
+    assert.ok(await models.SourceModel.findByPk(additional.body.source.id));
+    await writeFile(file, original);
+    const invalidSnapshot = JSON.parse(original);
+    invalidSnapshot.tables.imports[0].sourceId = 2147483647;
+    const brokenPayload = JSON.stringify(invalidSnapshot);
+    await writeFile(file, brokenPayload);
+    await metadata.update({ sha256: createHash('sha256').update(brokenPayload).digest('hex') });
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, cookieA)).status, 500);
+    assert.ok(await models.SourceModel.findByPk(additional.body.source.id));
+    assert.equal(await models.BackupModel.count({ where: { companyId: companyA.body.company.id } }), 1);
+    assert.equal((await readdir(backupDir)).length, 1);
+    await writeFile(file, original);
+    await metadata.update({ sha256: createHash('sha256').update(original).digest('hex') });
+    const restored = await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, cookieA);
+    assert.equal(restored.status, 200, JSON.stringify(restored.body));
+    assert.equal(await models.SourceModel.findByPk(additional.body.source.id), null);
+    assert.ok(restored.body.restoration.safetyBackupId);
+    assert.equal((await request('GET', '/respaldos/restauraciones', undefined, cookieA)).body.restorations.length, 1);
+    assert.equal((await request('GET', '/respaldos/restauraciones', undefined, cookieB)).body.restorations.length, 0);
+    const safety = await request('POST', `/respaldos/${restored.body.restoration.safetyBackupId}/restaurar`, { confirm: true }, cookieA);
+    assert.equal(safety.status, 200, JSON.stringify(safety.body));
+    assert.ok(await models.SourceModel.findByPk(additional.body.source.id));
+    const legacy = JSON.parse(original);
+    legacy.version = 1;
+    delete legacy.tables.exports;
+    const legacyPayload = JSON.stringify(legacy);
+    await writeFile(file, legacyPayload);
+    await metadata.update({ sha256: createHash('sha256').update(legacyPayload).digest('hex') });
+    assert.equal((await request('POST', `/respaldos/${backupId}/restaurar`, { confirm: true }, cookieA)).status, 200);
+    assert.equal(await models.SourceModel.count({ where: { companyId: companyB.body.company.id } }), companyBSourceCount);
+    assert.equal((await request('GET', '/respaldos', undefined, cookieB)).body.backups.length, 0);
+    assert.equal((await request('GET', '/respaldos')).status, 401);
+  });
+  await t.test('E21 exports tenant records, metrics and history as CSV with an audit entry', async () => {
+    const exportCsv = async (data, cookie) => {
+      const response = await fetch(`${base}/exportaciones`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(data) });
+      return { status: response.status, text: await response.text(), id: response.headers.get('x-export-id'),
+        disposition: response.headers.get('content-disposition'), type: response.headers.get('content-type') };
+    };
+    const filters = { from: '2026-08-01', to: '2026-09-30', dataType: 'operations', format: 'csv' };
+    const records = await exportCsv({ ...filters, kind: 'records' }, cookieA);
+    assert.equal(records.status, 200);
+    assert.match(records.type, /text\/csv/);
+    assert.match(records.disposition, /attachment/);
+    assert.match(records.text, /"dataType"/);
+    assert.equal((records.text.match(/"operations"/g) || []).length, 3);
+    const metric = await exportCsv({ ...filters, kind: 'metric', metric: 'count', to: '2026-08-31' }, cookieA);
+    assert.equal(metric.status, 200);
+    assert.match(metric.text, /"count","","2026-08-01","2026-08-31","1"/);
+    const history = await exportCsv({ ...filters, kind: 'history', metric: 'count', interval: 'month' }, cookieA);
+    assert.equal(history.status, 200);
+    assert.match(history.text, /"2026-08","count"/);
+    assert.match(history.text, /"2026-09","count"/);
+    assert.equal((await request('GET', '/exportaciones', undefined, cookieA)).body.exports.length, 3);
+    assert.equal((await request('GET', '/exportaciones', undefined, cookieB)).body.exports.length, 0);
+    assert.equal((await exportCsv({ ...filters, kind: 'records' }, cookieB)).text.includes('operations'), false);
+    assert.equal((await exportCsv({ ...filters, kind: 'records', format: 'pdf' }, cookieA)).status, 400);
+    assert.equal((await exportCsv({ ...filters, kind: 'records', sourceId: 2147483647 }, cookieA)).status, 404);
+    assert.equal((await exportCsv({ ...filters, kind: 'history', metric: 'count', interval: 'week' }, cookieA)).status, 400);
+    assert.equal((await exportCsv({ ...filters, kind: 'records' })).status, 401);
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);

@@ -32,8 +32,24 @@ import { createMetricRouter } from './routes/metric.routes.js';
 import { createMetricControllers } from './controllers/metric.controller.js';
 import { createHistoryRouter } from './routes/history.routes.js';
 import { createHistoryControllers } from './controllers/history.controller.js';
+import { createPatternRouter } from './routes/pattern.routes.js';
+import { createPatternControllers } from './controllers/pattern.controller.js';
+import { createTrendRouter } from './routes/trend.routes.js';
+import { createTrendControllers } from './controllers/trend.controller.js';
+import { createProductivityRouter } from './routes/productivity.routes.js';
+import { createProductivityControllers } from './controllers/productivity.controller.js';
+import { createExternalSourceRouter } from './routes/externalSource.routes.js';
+import { createExternalSourceControllers } from './controllers/externalSource.controller.js';
+import { createContextualizationRouter } from './routes/contextualization.routes.js';
+import { createContextualizationControllers } from './controllers/contextualization.controller.js';
+import { createAlertRouter } from './routes/alert.routes.js';
+import { createAlertControllers } from './controllers/alert.controller.js';
+import { createBackupRouter } from './routes/backup.routes.js';
+import { createBackupControllers } from './controllers/backup.controller.js';
+import { createExportRouter } from './routes/export.routes.js';
+import { createExportControllers } from './controllers/export.controller.js';
 
-export const createApp = ({ database, models, config }) => {
+export const createApp = ({ database, models, config, externalFetch, backupDir }) => {
   if (!config.FRONTEND_URL || !/^https?:$/.test(new URL(config.FRONTEND_URL).protocol)) {
     throw new Error('FRONTEND_URL debe ser un origen HTTP válido');
   }
@@ -66,6 +82,14 @@ export const createApp = ({ database, models, config }) => {
   app.use('/api/v1/visualizaciones', createVisualizationRouter(createVisualizationControllers(models), auth));
   app.use('/api/v1/metricas', createMetricRouter(createMetricControllers(database, models), auth));
   app.use('/api/v1/historicos', createHistoryRouter(createHistoryControllers(database, models), auth));
+  app.use('/api/v1/patrones', createPatternRouter(createPatternControllers(database, models), auth));
+  app.use('/api/v1/tendencias', createTrendRouter(createTrendControllers(database, models), auth));
+  app.use('/api/v1/productividad', createProductivityRouter(createProductivityControllers(models), auth));
+  app.use('/api/v1/fuentes-externas', createExternalSourceRouter(createExternalSourceControllers(models, externalFetch), auth));
+  app.use('/api/v1/contextualizacion', createContextualizationRouter(createContextualizationControllers(database, models, externalFetch), auth));
+  app.use('/api/v1/alertas', createAlertRouter(createAlertControllers(database, models), auth));
+  app.use('/api/v1/respaldos', createBackupRouter(createBackupControllers(database, models, backupDir), auth));
+  app.use('/api/v1/exportaciones', createExportRouter(createExportControllers(database, models), auth));
   app.use((req, res) => res.status(404).json({ message: 'Recurso no encontrado' }));
   app.use(errorMiddleware);
   return app;
