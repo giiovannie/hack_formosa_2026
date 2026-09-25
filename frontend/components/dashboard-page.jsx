@@ -50,23 +50,23 @@ export default function DashboardPage() {
   const retryWidget = (id) => setWidgets((current) => current.map((widget) => widget.id === id ? { ...widget, status: "loading" } : widget))
 
   if (activeView === "data-entry") {
-    return <PageEntrance><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div><ProcessingDashboard embedded /></div></PageEntrance>
+    return <PageEntrance key={activeView}><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataEntry /></div><ProcessingDashboard embedded /></div></PageEntrance>
   }
 
   if (activeView === "traceability") {
-    return <PageEntrance><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><Traceability embedded /></div></PageEntrance>
+    return <PageEntrance key={activeView}><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><Traceability embedded /></div></PageEntrance>
   }
 
   if (activeView === "data-quality") {
-    return <PageEntrance><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataQuality /></div></div></PageEntrance>
+    return <PageEntrance key={activeView}><div className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div className="[&>main>header]:hidden"><DataQuality /></div></div></PageEntrance>
   }
 
   if (activeView === "settings") {
-    return <PageEntrance><div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0F17]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div data-page-enter=""><CompanyConfiguration embedded /></div></div></PageEntrance>
+    return <PageEntrance key={activeView}><div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0F17]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><div data-page-enter=""><CompanyConfiguration embedded /></div></div></PageEntrance>
   }
 
   return (
-    <PageEntrance><div id="dashboard" className="min-h-screen bg-[#F8F9FA] text-[#1E293B] dark:bg-[#0B0F17] dark:text-[#F8FAFC]
+    <PageEntrance key={activeView}><div id="dashboard" className="min-h-screen bg-[#F8F9FA] text-[#1E293B] dark:bg-[#0B0F17] dark:text-[#F8FAFC]
       ">
       <DashboardNavbar activeView={activeView} onNavigate={setActiveView} />
       <motion.main initial="hidden" animate="visible" variants={sequenceVariants} className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
