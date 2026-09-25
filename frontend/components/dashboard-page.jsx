@@ -3,6 +3,7 @@ import { Check, ChevronDown, SlidersHorizontal } from "lucide-react"
 import DashboardNavbar from "@/components/dashboard-navbar"
 import DashboardWidget from "@/components/dashboard-widget"
 import { dashboardWidgets } from "@/components/dashboard-data"
+import CompanyConfiguration from "@/components/Profile-and-empresarial-configuration"
 
 function WidgetPicker({ visibleIds, onToggle }) {
   return (
@@ -19,6 +20,7 @@ function WidgetPicker({ visibleIds, onToggle }) {
 }
 
 export default function DashboardPage() {
+  const [activeView, setActiveView] = useState("dashboard")
   const [visibleIds, setVisibleIds] = useState(dashboardWidgets.map((widget) => widget.id))
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [widgets, setWidgets] = useState(dashboardWidgets)
@@ -26,10 +28,14 @@ export default function DashboardPage() {
   const toggleWidget = (id) => setVisibleIds((current) => current.includes(id) ? current.filter((currentId) => currentId !== id) : [...current, id])
   const retryWidget = (id) => setWidgets((current) => current.map((widget) => widget.id === id ? { ...widget, status: "loading" } : widget))
 
+  if (activeView === "settings") {
+    return <div className="min-h-screen bg-[#F8F9FA] dark:bg-[#0B0F17]"><DashboardNavbar activeView={activeView} onNavigate={setActiveView} /><CompanyConfiguration embedded /></div>
+  }
+
   return (
     <div id="dashboard" className="min-h-screen bg-[#F8F9FA] text-[#1E293B] dark:bg-[#0B0F17] dark:text-[#F8FAFC]
       ">
-      <DashboardNavbar />
+      <DashboardNavbar activeView={activeView} onNavigate={setActiveView} />
       <main className="mx-auto max-w-7xl px-5 py-8 lg:px-8 lg:py-10">
         <section className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div><p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-blue dark:text-brand">Resumen ejecutivo</p><h1 className="mt-2 text-3xl font-bold tracking-tight text-[#0F172A] dark:text-[#F8FAFC] md:text-4xl">Buen día, María</h1><p className="mt-2 text-[#64748B] dark:text-[#94A3B8]">Estos son los indicadores de tu empresa para hoy.</p></div>

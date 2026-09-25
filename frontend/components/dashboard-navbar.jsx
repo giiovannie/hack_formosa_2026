@@ -1,7 +1,13 @@
-import { Bell, ChevronDown, LayoutDashboard, Settings2 } from "lucide-react"
+import { Bell, ChevronDown, LayoutDashboard, Settings2, Sparkles } from "lucide-react"
 import ThemeToggle from "@/components/theme-toggle"
 
-export default function DashboardNavbar() {
+const navItems = [
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "processing", label: "Procesamiento", icon: Sparkles },
+  { id: "settings", label: "Configuración", icon: Settings2 },
+]
+
+export default function DashboardNavbar({ activeView, onNavigate }) {
   return (
     <header className="border-b border-[#E2E8F0] bg-[#F8F9FA]/90 backdrop-blur-md dark:border-[#263346] dark:bg-[#0B0F17]/90">
       <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-4 lg:px-8">
@@ -10,8 +16,17 @@ export default function DashboardNavbar() {
           <div className="hidden sm:block"><p className="text-xs uppercase tracking-[0.18em] text-[#64748B] dark:text-[#94A3B8]">Workspace</p><p className="text-base font-semibold text-[#1E293B] dark:text-[#F8FAFC]">Stockflow</p></div>
         </a>
         <div className="hidden items-center gap-1 rounded-xl border border-[#E2E8F0] bg-white/80 p-1 dark:border-[#263346] dark:bg-[#151D2A]/80 md:flex">
-          <a href="#dashboard" className="inline-flex items-center gap-2 rounded-lg bg-brand-blue px-4 py-2 text-sm font-semibold text-white shadow-sm dark:bg-brand dark:text-[#0B0F17]"><LayoutDashboard className="h-4 w-4" />Dashboard</a>
-          <a href="#settings" className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-[#64748B] hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:text-[#F8FAFC]"><Settings2 className="h-4 w-4" />Configuración</a>
+          {navItems.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onNavigate(id)}
+              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${activeView === id ? "bg-brand-blue font-semibold text-white shadow-sm dark:bg-brand dark:text-[#0B0F17]" : "text-[#64748B] hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:text-[#F8FAFC]"}`}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
