@@ -14,7 +14,7 @@ function GoogleMark() {
   )
 }
 
-export function CredentialForm({ initialMode = 'login', onClose }) {
+export function CredentialForm({ initialMode = 'login', onClose, onAuthenticated }) {
   const [mode, setMode] = useState(initialMode)
   const [showPassword, setShowPassword] = useState(false)
 
@@ -28,6 +28,11 @@ export function CredentialForm({ initialMode = 'login', onClose }) {
   }, [onClose])
 
   const isRegister = mode === 'register'
+
+  function handleSubmit(event) {
+    event.preventDefault()
+    onAuthenticated?.()
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/60 px-4 py-8 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="credential-title">
@@ -49,7 +54,7 @@ export function CredentialForm({ initialMode = 'login', onClose }) {
           </p>
         </div>
 
-        <form className="flex flex-col gap-5" onSubmit={(event) => event.preventDefault()}>
+        <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
           {isRegister && (
             <label className="flex flex-col gap-2 text-sm font-medium text-[#1E293B] dark:text-[#F8FAFC]" htmlFor="credential-name">
               Nombre o empresa
@@ -84,7 +89,7 @@ export function CredentialForm({ initialMode = 'login', onClose }) {
         </form>
 
         <div className="my-7 flex items-center gap-3 text-xs text-[#94A3B8]"><span className="h-px flex-1 bg-[#E2E8F0] dark:bg-[#263346]" /><span>o</span><span className="h-px flex-1 bg-[#E2E8F0] dark:bg-[#263346]" /></div>
-        <button type="button" className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#E2E8F0] bg-transparent text-sm font-semibold text-[#1E293B] transition hover:border-brand-blue/50 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-blue/15 dark:border-[#263346] dark:text-[#F8FAFC] dark:hover:border-brand/50 dark:hover:bg-brand/10 dark:focus-visible:ring-brand/15"><GoogleMark /> Continuar con Google</button>
+        <button type="button" onClick={onAuthenticated} className="flex h-12 w-full items-center justify-center gap-3 rounded-xl border border-[#E2E8F0] bg-transparent text-sm font-semibold text-[#1E293B] transition hover:border-brand-blue/50 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-blue/15 dark:border-[#263346] dark:text-[#F8FAFC] dark:hover:border-brand/50 dark:hover:bg-brand/10 dark:focus-visible:ring-brand/15"><GoogleMark /> Continuar con Google</button>
         <p className="mt-7 text-center text-sm text-[#64748B] dark:text-[#94A3B8]">
           {isRegister ? '¿Ya tienes una cuenta?' : '¿No tienes cuenta?'}{' '}
           <button type="button" onClick={() => { setMode(isRegister ? 'login' : 'register'); setShowPassword(false) }} className="font-semibold text-brand-blue underline-offset-4 hover:underline dark:text-brand">
