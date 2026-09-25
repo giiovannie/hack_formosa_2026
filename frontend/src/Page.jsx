@@ -6,8 +6,8 @@ import FeaturesSection from "@/components/features-section"
 import SimplicityBanner from "@/components/simplicity-banner"
 import CtaSection from "@/components/cta-section"
 import Footer from "@/components/footer"
-import ThemeToggle from "@/components/theme-toggle"
 import DashboardPage from "@/components/dashboard-page"
+import ThemeToggle from "@/components/theme-toggle"
 
 function LandingPage({ onAuthSuccess }) {
   return (
@@ -21,7 +21,6 @@ function LandingPage({ onAuthSuccess }) {
         <CtaSection />
       </main>
       <Footer />
-      <ThemeToggle />
     </div>
   )
 }
@@ -29,9 +28,14 @@ function LandingPage({ onAuthSuccess }) {
 export default function Page() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
 
-  if (!isAuthenticated) {
-    return <LandingPage onAuthSuccess={() => setIsAuthenticated(true)} />
-  }
+  const page = isAuthenticated
+    ? <DashboardPage />
+    : <LandingPage onAuthSuccess={() => setIsAuthenticated(true)} />
 
-  return <DashboardPage />
+  return (
+    <>
+      {page}
+      <ThemeToggle />
+    </>
+  )
 }

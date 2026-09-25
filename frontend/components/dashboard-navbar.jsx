@@ -1,5 +1,4 @@
 import { Bell, ChevronDown, FileCheck2, LayoutDashboard, Settings2, Upload } from "lucide-react"
-import ThemeToggle from "@/components/theme-toggle"
 
 const navItems = [
   { id: "data-entry", label: "Carga de datos", icon: Upload },
@@ -30,7 +29,6 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <ThemeToggle />
           <button type="button" aria-label="Ver alertas" className="relative rounded-lg p-2 text-[#64748B] hover:bg-white hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:bg-[#151D2A] dark:hover:text-[#F8FAFC]"><Bell className="h-5 w-5" /><span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" /></button>
           <button type="button" className="hidden items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm font-medium text-[#1E293B] dark:border-[#263346] dark:bg-[#151D2A] dark:text-[#F8FAFC] sm:flex"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-blue/10 text-xs font-bold text-brand-blue dark:bg-brand/10 dark:text-brand">ML</span>María López<ChevronDown className="h-4 w-4 text-[#94A3B8]" /></button>
         </div>
