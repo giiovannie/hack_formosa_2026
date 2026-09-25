@@ -1,5 +1,9 @@
 # API-CONTRACT.md
 
+## Cierre de sesión
+
+- `POST /api/v1/auth/logout`: elimina la cookie `token` con los mismos atributos de path, SameSite y Secure que el inicio de sesión. Responde `{ message }`.
+
 ## BE E03 — Entrada y carga de datos (IMPLEMENTADO)
 
 Tarjeta: https://trello.com/c/UHxJgrrx (134). Todos los endpoints requieren usuario autenticado; `companyId` siempre proviene de la sesión. Los datos quedan sin procesar (`pending`), listos para una tarea ETL posterior. Cada carga representa una `dataImport`; no crea ventas, compras ni métricas automáticamente.
@@ -1338,6 +1342,7 @@ Todas las rutas requieren sesión; `importacionId` solo se busca dentro de la em
 Todas las rutas requieren la cookie de sesión. La empresa se obtiene de la sesión; un ID ajeno responde `404`.
 
 - `POST /api/v1/etl/procesar/:importacionId`: ejecuta el ETL de una importación propia y devuelve `200` con `{ "message": "Proceso ETL finalizado", "process": { "id", "companyId", "dataImportId", "status", "stages", "errors", "result": { "summary": { "total", "accepted", "rejected" } }, "createdAt", "updatedAt" } }`. `status` vale `completed` o `failed`. Una importación en proceso responde `409`.
+- `process.stages` conserva las etapas realizadas y sus conteos/tiempos: extracciÃ³n, validaciÃ³n estructural, limpieza, sanitizaciÃ³n, normalizaciÃ³n, clasificaciÃ³n y carga. La etapa `loading` queda `pending` hasta que E07 guarde las filas validadas en `ProcessedRecords`; luego se marca `completed` con `loadedRecords`.
 - `GET /api/v1/etl/procesos/:id`: devuelve `200` con `{ "message": "Proceso ETL obtenido", "process": ... }` o `404`.
 - `POST /api/v1/etl/reprocesar/:id`: crea otra ejecución para la importación del proceso propio indicado; devuelve el mismo formato que `procesar`, sin sobrescribir ejecuciones previas.
 

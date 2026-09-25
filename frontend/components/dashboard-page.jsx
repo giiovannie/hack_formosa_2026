@@ -95,8 +95,8 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    Promise.resolve().then(loadDashboard)
-  }, [])
+    if (activeView === "dashboard") Promise.resolve().then(loadDashboard)
+  }, [activeView])
 
   const toggleWidget = (id) => setVisibleIds((current) => current.includes(id) ? current.filter((currentId) => currentId !== id) : [...current, id])
   const retryWidget = () => loadDashboard()
@@ -147,7 +147,7 @@ export default function DashboardPage() {
         <motion.section variants={riseVariants} className="mb-8 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <motion.div variants={sequenceVariants}>
             <motion.p variants={riseVariants} className="text-sm font-semibold uppercase tracking-[0.18em] text-brand-blue dark:text-brand">Resumen ejecutivo</motion.p>
-            <motion.h1 variants={riseVariants} className="mt-2 text-3xl font-bold tracking-tight text-[#0F172A] dark:text-[#F8FAFC] md:text-4xl">Buen día, María</motion.h1>
+            <motion.h1 variants={riseVariants} className="mt-2 text-3xl font-bold tracking-tight text-[#0F172A] dark:text-[#F8FAFC] md:text-4xl">Resumen de tu empresa</motion.h1>
             <motion.p variants={riseVariants} className="mt-2 text-[#64748B] dark:text-[#94A3B8]">Estos son los indicadores de tu empresa para hoy.</motion.p>
           </motion.div>
           <motion.div variants={riseVariants} className="relative">

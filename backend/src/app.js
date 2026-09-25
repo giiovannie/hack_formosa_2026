@@ -6,7 +6,7 @@ import { createAuthMiddleware } from './middlewares/auth.middleware.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import { createCompanyControllers } from './controllers/company.controller.js';
 import { createUserControllers } from './controllers/user.controller.js';
-import { createLoginController } from './controllers/auth.controller.js';
+import { createLoginController, createLogoutController } from './controllers/auth.controller.js';
 import { createCompanyRouter } from './routes/company.routes.js';
 import { createUserRouter } from './routes/user.routes.js';
 import { createAuthRouter } from './routes/auth.routes.js';
@@ -68,7 +68,9 @@ export const createApp = ({ database, models, config, externalFetch, backupDir }
     return next();
   });
   app.use(express.json({ limit: '32kb' }), cookieParser());
-  app.use('/api/v1/auth', createAuthRouter(createLoginController(models, tokens, config)));
+  app.use('/api/v1/auth', createAuthRouter({
+    login: createLoginController(models, tokens, config), logout: createLogoutController(config),
+  }));
   app.use('/api/v1/empresas', createCompanyRouter(createCompanyControllers(database, models), auth));
   app.use('/api/v1/usuarios', createUserRouter(createUserControllers(database, models), auth));
   app.use('/api/v1/empresa/perfil', createCompanyProfileRouter(createCompanyProfileControllers(database, models), auth));

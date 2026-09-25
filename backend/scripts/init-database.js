@@ -8,7 +8,7 @@ const initialize = async () => {
   try {
     initializeModels(database);
     await database.authenticate();
-    await database.sync();
+    await database.sync({ force: false });
     console.log('Tablas iniciales verificadas');
   } finally { await database.close(); }
 };

@@ -1750,6 +1750,14 @@ El ETL deberá responder siempre estas preguntas:
 ¿Qué información entregamos finalmente?
 ```
 
+## Flujo implementado para importaciones CSV y registros manuales
+
+La extracción acepta CSV UTF-8 delimitado por coma, punto y coma, tabulación o barra vertical. Se valida la fila de encabezados, se rechazan nombres vacíos o duplicados (sin distinguir mayúsculas/minúsculas), y se rechazan filas con una cantidad de campos distinta a la del encabezado. Se admite BOM UTF-8. La carga debe contener al menos una fila de datos.
+
+La transformación conserva los valores originales para trazabilidad y crea una vista normalizada que aplica Unicode NFC y recorta espacios externos. Las filas completamente vacías y los duplicados exactos sobre todos los campos normalizados quedan clasificados como rechazados; no se infieren reglas de negocio ni se convierten valores numéricos o fechas. Se genera un perfil por columna con cantidad de faltantes, cardinalidad y tipo detectado, solo como orientación y sin alterar los valores.
+
+El resultado transformado queda primero en `ProcessingRuns.result`. Después de la validación de calidad, Backend carga únicamente las filas sin errores en `ProcessedRecords` dentro de una transacción. La trazabilidad mantiene métricas de etapas, filas aceptadas/rechazadas y filas finalmente cargadas; `loading` solo pasa a `completed` después de esa persistencia.
+
 El objetivo no es simplemente importar archivos.
 
 El objetivo es convertir datos empresariales dispersos en información consistente y confiable que pueda ser utilizada posteriormente por el resto de la plataforma.

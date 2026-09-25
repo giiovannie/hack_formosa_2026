@@ -1,5 +1,14 @@
 export const errorMiddleware = (error, req, res, next) => {
   if (res.headersSent) return next(error);
+  if (!error.status || error.status >= 500) {
+    console.error('[API error]', {
+      method: req.method,
+      path: req.path,
+      name: error.name,
+      code: error.code,
+      stack: error.stack?.split('\n').slice(1, 6).join('\n'),
+    });
+  }
   if (error.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ message: 'El archivo supera el tamaño permitido' });
   if (typeof error.code === 'string' && error.code.startsWith('LIMIT_')) return res.status(400).json({ message: 'La carga no es válida' });
   if (error.name === 'SequelizeUniqueConstraintError') {

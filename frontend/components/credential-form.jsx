@@ -38,7 +38,14 @@ export function CredentialForm({ initialMode = 'login', onClose, onSuccess }) {
     setIsSubmitting(true)
     const values = Object.fromEntries(new FormData(event.currentTarget))
     try {
-      const response = isRegister ? await registerCompany(values) : await login(values)
+      if (isRegister) await registerCompany(values)
+      let response
+      try {
+        response = await login({ email: values.email, password: values.password })
+      } catch (error) {
+        if (isRegister) throw new Error('La cuenta se creó correctamente, pero no se pudo iniciar sesión. Volvé a ingresar con tu correo y contraseña.')
+        throw error
+      }
       onSuccess?.(response.user)
       onClose?.()
     } catch (error) {

@@ -4,6 +4,12 @@ import { assessQuality } from '../helpers/assessQuality.helper.js';
 const notFound = () => Object.assign(new Error('Calidad o importación no encontrada'), { status: 404 });
 const conflict = () => Object.assign(new Error('La importación debe procesarse primero'), { status: 409 });
 
+const qualityStages = (stages = [], quality) => [
+  ...stages.filter((stage) => stage.name !== 'quality'),
+  { name: 'quality', status: 'completed', total: quality.totalProcessed,
+    valid: quality.validRecords, rejected: quality.rejectedRecords, errors: quality.errors.length },
+];
+
 export const createQualityControllers = (database, models) => {
   const latest = async (companyId, dataImportId, transaction, lock) => {
     const dataImport = await models.DataImportModel.findOne({ where: { id: dataImportId, companyId }, transaction });
@@ -11,6 +17,11 @@ export const createQualityControllers = (database, models) => {
     const run = await models.ProcessingRunModel.findOne({ where: { companyId, dataImportId, status: 'completed' },
       order: [['id', 'DESC']], transaction, ...(lock ? { lock: transaction.LOCK.UPDATE } : {}) });
     if (!run) throw conflict();
+    // Older database schemas may expose JSON columns as serialized text.
+    if (typeof run.result === 'string') {
+      try { run.setDataValue('result', JSON.parse(run.result)); }
+      catch { throw Object.assign(new Error('El resultado ETL guardado no es JSON válido; volvé a procesar la importación'), { status: 409 }); }
+    }
     return run;
   };
   const publicQuality = (run) => {
@@ -25,6 +36,9 @@ export const createQualityControllers = (database, models) => {
         const { rules = {} } = matchedData(req, { locations: ['body'] });
         const output = await database.transaction(async (transaction) => {
           const run = await latest(req.user.companyId, importacionId, transaction, true);
+          if (!Array.isArray(run.result?.accepted) || !Array.isArray(run.result?.rejected)) {
+            throw Object.assign(new Error('El proceso ETL no guardó sus registros correctamente; volvé a procesar la importación'), { status: 409 });
+          }
           if (await models.ProcessedRecordModel.count({ where: { companyId: req.user.companyId, processingRunId: run.id }, transaction })) {
             throw Object.assign(new Error('El proceso ya fue almacenado; reprocesá para cambiar la calidad'), { status: 409 });
           }
@@ -34,7 +48,8 @@ export const createQualityControllers = (database, models) => {
             throw Object.assign(new Error('Regla para columna inexistente'), { status: 400 });
           }
           const quality = assessQuality(run.result, rules, run.result.corrections || {});
-          await run.update({ result: { ...run.result, rules, quality, qualityValidatedAt: new Date().toISOString() } }, { transaction });
+          await run.update({ result: { ...run.result, rules, quality, qualityValidatedAt: new Date().toISOString() },
+            stages: qualityStages(run.stages, quality) }, { transaction });
           return publicQuality(run);
         });
         return res.status(200).json({ message: 'Calidad validada', ...output });
@@ -80,7 +95,8 @@ export const createQualityControllers = (database, models) => {
           }
           const corrections = { ...(run.result.corrections || {}), [row]: record };
           const quality = assessQuality(run.result, run.result.rules || {}, corrections);
-          await run.update({ result: { ...run.result, corrections, quality, qualityValidatedAt: new Date().toISOString() } }, { transaction });
+          await run.update({ result: { ...run.result, corrections, quality, qualityValidatedAt: new Date().toISOString() },
+            stages: qualityStages(run.stages, quality) }, { transaction });
           return publicQuality(run);
         });
         return res.status(200).json({ message: 'Registro corregido', ...output });

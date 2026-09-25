@@ -5,6 +5,11 @@ import { fileURLToPath, URL } from 'node:url'
 
 // https://vite.dev/config/
 export default defineConfig({
+  server: {
+    host: 'localhost',
+    port: 5173,
+    strictPort: true,
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./', import.meta.url))

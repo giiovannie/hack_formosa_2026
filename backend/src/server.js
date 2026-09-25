@@ -12,11 +12,20 @@ const start = async () => {
     const models = initializeModels(database);
     const app = createApp({ database, models, config: process.env });
     await database.authenticate();
-    const server = app.listen(port, () => console.log(`Backend iniciado en puerto ${port}`));
+    const server = app.listen(port);
+    server.once('listening', () => console.log(`Backend iniciado en puerto ${port}`));
     const shutdown = () => server.close(async () => { await database.close(); });
     process.once('SIGINT', shutdown);
     process.once('SIGTERM', shutdown);
-    server.on('error', async () => { console.error('No se pudo iniciar el servidor'); await database.close(); process.exitCode = 1; });
+    server.once('error', async (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`El puerto ${port} ya está en uso. Cerrá la instancia anterior o configurá otro PORT.`);
+      } else {
+        console.error(`No se pudo iniciar el servidor (${error.code || 'error desconocido'}).`);
+      }
+      await database.close();
+      process.exitCode = 1;
+    });
   } catch {
     await database.close();
     console.error('No se pudo iniciar el backend. Revisá las variables de entorno y la base de datos.');

@@ -20,3 +20,8 @@ export const createLoginController = (models, tokens, config) => async (req, res
     return res.status(200).json({ message: 'Sesión iniciada correctamente', user: publicUser(user) });
   } catch (error) { return next(error); }
 };
+
+export const createLogoutController = (config) => (_req, res) => {
+  res.clearCookie('token', { httpOnly: true, sameSite: 'strict', secure: config.NODE_ENV === 'production', path: '/api/v1' });
+  return res.status(200).json({ message: 'SesiÃ³n cerrada correctamente' });
+};

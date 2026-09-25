@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Navbar from "@/components/navbar"
 import HeroSection from "@/components/hero-section"
 import ProblemSection from "@/components/problem-section"
@@ -9,6 +9,7 @@ import Footer from "@/components/footer"
 import DashboardPage from "@/components/dashboard-page"
 import PageEntrance from "@/components/page-entrance"
 import ThemeToggle from "@/components/theme-toggle"
+import { getDashboard } from "@/src/api"
 
 function LandingPage({ onAuthSuccess }) {
   return (
@@ -26,9 +27,15 @@ function LandingPage({ onAuthSuccess }) {
 }
 
 export default function Page() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(null)
 
-  const page = isAuthenticated
+  useEffect(() => {
+    getDashboard().then(() => setIsAuthenticated(true)).catch(() => setIsAuthenticated(false))
+  }, [])
+
+  const page = isAuthenticated === null
+    ? <div className="grid min-h-screen place-items-center bg-[#0B0F17] text-sm text-[#94A3B8]">Comprobando sesión…</div>
+    : isAuthenticated
     ? <DashboardPage />
     : <LandingPage onAuthSuccess={() => setIsAuthenticated(true)} />
 

@@ -36,6 +36,9 @@ export const runEtl = (dataImport, config = {}) => new Promise((resolve, reject)
       const output = JSON.parse(stdout);
       if (output.ok === false && typeof output.error === 'string') return finish(new Error(output.error));
       if (output.ok !== true || !output.result) throw new Error('Resultado ETL inválido');
+      if (!Array.isArray(output.result.accepted) || !Array.isArray(output.result.rejected)) {
+        throw new Error('El resultado ETL no contiene registros clasificados');
+      }
       return finish(null, output.result);
     } catch { return finish(new Error('Resultado ETL inválido')); }
   });

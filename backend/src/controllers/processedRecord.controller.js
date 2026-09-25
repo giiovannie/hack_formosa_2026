@@ -3,6 +3,17 @@ import { matchedData } from 'express-validator';
 const missing = () => Object.assign(new Error('Importación o registro no encontrado'), { status: 404 });
 const notReady = () => Object.assign(new Error('Se requiere ETL y validación de calidad'), { status: 409 });
 
+const loadedStages = (stages = [], loadedRecords = 0) => {
+  let foundLoading = false;
+  const updated = stages.map((stage) => {
+    if (stage.name !== 'loading') return stage;
+    foundLoading = true;
+    return { ...stage, status: 'completed', loadedRecords };
+  });
+  if (!foundLoading) updated.push({ name: 'loading', status: 'completed', loadedRecords });
+  return updated;
+};
+
 export const createProcessedRecordControllers = (database, models) => ({
   persist: async (req, res, next) => {
     try {
@@ -12,9 +23,14 @@ export const createProcessedRecordControllers = (database, models) => ({
         if (!dataImport) throw missing();
         const run = await models.ProcessingRunModel.findOne({ where: { companyId: req.user.companyId,
           dataImportId: dataImport.id, status: 'completed' }, order: [['id', 'DESC']], transaction, lock: transaction.LOCK.UPDATE });
-        if (!run?.result?.quality) throw notReady();
+        if (typeof run?.result === 'string') {
+          try { run.setDataValue('result', JSON.parse(run.result)); }
+          catch { throw notReady(); }
+        }
+        if (!run?.result?.quality || !Array.isArray(run.result.accepted) || !Array.isArray(run.result.rejected)) throw notReady();
         const count = await models.ProcessedRecordModel.count({ where: { companyId: req.user.companyId, processingRunId: run.id }, transaction });
         if (count) {
+          await run.update({ stages: loadedStages(run.stages, count) }, { transaction });
           return { processingRunId: run.id, persistedRecords: count, alreadyPersisted: true };
         }
         const rejectedRows = new Set(run.result.quality.errors.map((error) => error.row));
@@ -32,6 +48,7 @@ export const createProcessedRecordControllers = (database, models) => ({
           throw Object.assign(new Error('La calidad debe recalcularse'), { status: 409 });
         }
         if (records.length) await models.ProcessedRecordModel.bulkCreate(records, { transaction });
+        await run.update({ stages: loadedStages(run.stages, records.length) }, { transaction });
         return { processingRunId: run.id, persistedRecords: records.length, alreadyPersisted: false };
       });
       return res.status(200).json({ message: 'Datos procesados almacenados', ...output });

@@ -25,9 +25,12 @@ export const createEtlControllers = (database, models, config) => {
       try {
         const result = await runEtl(started.dataImport, config);
         await database.transaction(async (transaction) => {
-          await run.update({ status: 'completed', result, stages: [
-            'extraction', 'validation', 'cleaning', 'sanitization', 'normalization', 'classification', 'loading',
-          ].map((name) => ({ name, status: 'completed' })) }, { transaction });
+          const stages = Array.isArray(result.stages) ? result.stages : [
+            ...['extraction', 'validation', 'cleaning', 'sanitization', 'normalization', 'classification']
+              .map((name) => ({ name, status: 'completed' })),
+            { name: 'loading', status: 'pending', target: 'ProcessedRecords' },
+          ];
+          await run.update({ status: 'completed', result, stages }, { transaction });
           await started.dataImport.update({ status: 'completed' }, { transaction });
         });
       } catch (error) {

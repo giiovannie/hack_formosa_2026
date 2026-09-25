@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
-import { Activity, Bell, ChevronDown, ChevronLeft, ChevronRight, FileCheck2, GitBranch, LayoutDashboard, LineChart, Settings2, Upload, Database } from "lucide-react"
+import { Activity, Bell, ChevronDown, ChevronLeft, ChevronRight, FileCheck2, GitBranch, LayoutDashboard, LineChart, LogOut, Settings2, Upload, Database } from "lucide-react"
 import { motion } from "framer-motion"
+import { logout } from "@/src/api"
 
 const navItems = [
   { id: "data-entry", label: "Carga de datos", icon: Upload },
@@ -15,6 +16,8 @@ const navItems = [
 
 export default function DashboardNavbar({ activeView, onNavigate }) {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState("")
   const [carouselCenter, setCarouselCenter] = useState(0)
   const [isCarouselEngaged, setIsCarouselEngaged] = useState(false)
   const profileMenuRef = useRef(null)
@@ -33,6 +36,18 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
       left: nextItem.offsetLeft - (viewport.clientWidth - nextItem.clientWidth) / 2,
       behavior: "smooth",
     })
+  }
+
+  const closeSession = async () => {
+    setIsLoggingOut(true)
+    setLogoutError("")
+    try {
+      await logout()
+      window.location.reload()
+    } catch (error) {
+      setLogoutError(error.message)
+      setIsLoggingOut(false)
+    }
   }
 
   useEffect(() => {
@@ -162,7 +177,7 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" aria-label="Ver alertas" aria-current={activeView === "alerts" ? "page" : undefined} onClick={() => onNavigate("alerts")} className={`relative rounded-lg p-2 transition ${activeView === "alerts" ? "bg-orange-500/10 text-orange-500 dark:bg-orange-400/10 dark:text-orange-400" : "text-[#64748B] hover:bg-white hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:bg-[#151D2A] dark:hover:text-[#F8FAFC]"}`}><Bell className="h-5 w-5" /><span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" /></button>
+          <button type="button" aria-label="Ver alertas" aria-current={activeView === "alerts" ? "page" : undefined} onClick={() => onNavigate("alerts")} className={`relative rounded-lg p-2 transition ${activeView === "alerts" ? "bg-orange-500/10 text-orange-500 dark:bg-orange-400/10 dark:text-orange-400" : "text-[#64748B] hover:bg-white hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:bg-[#151D2A] dark:hover:text-[#F8FAFC]"}`}><Bell className="h-5 w-5" /></button>
           <div className="relative" ref={profileMenuRef}>
             <button
               type="button"
@@ -171,33 +186,17 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
               onClick={() => setIsProfileMenuOpen((open) => !open)}
               className="inline-flex items-center gap-2 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm font-medium text-[#1E293B] dark:border-[#263346] dark:bg-[#151D2A] dark:text-[#F8FAFC]"
             >
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-blue/10 text-xs font-bold text-brand-blue dark:bg-brand/10 dark:text-brand">ML</span>
-              <span className="hidden sm:inline">María López</span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-brand-blue/10 text-xs font-bold text-brand-blue dark:bg-brand/10 dark:text-brand"></span>
+              <span className="hidden sm:inline">Mi empresa</span>
               <ChevronDown className={`h-4 w-4 text-[#94A3B8] transition-transform ${isProfileMenuOpen ? "rotate-180" : ""}`} />
             </button>
             {isProfileMenuOpen && (
               <div role="menu" className="absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-[#E2E8F0] bg-white p-2 shadow-xl dark:border-[#263346] dark:bg-[#151D2A]">
-                <div className="flex items-center gap-3 px-3 py-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-blue/10 text-sm font-bold text-brand-blue dark:bg-brand/10 dark:text-brand">ML</span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-[#1E293B] dark:text-[#F8FAFC]">María López</p>
-                    <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">Información del usuario</p>
-                  </div>
-                </div>
-                <dl className="space-y-3 px-3 py-2">
-                  <div>
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-[#64748B] dark:text-[#94A3B8]">Edad</dt>
-                    <dd className="mt-0.5 text-sm text-[#1E293B] dark:text-[#F8FAFC]">26 años</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-[#64748B] dark:text-[#94A3B8]">Correo electrónico</dt>
-                    <dd className="mt-0.5 break-all text-sm text-[#1E293B] dark:text-[#F8FAFC]">marialopez@gmail.com</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] font-medium uppercase tracking-wide text-[#64748B] dark:text-[#94A3B8]">PyME a cargo</dt>
-                    <dd className="mt-0.5 text-sm text-[#1E293B] dark:text-[#F8FAFC]">Almacén La Esquina</dd>
-                  </div>
-                </dl>
+                <button type="button" role="menuitem" disabled={isLoggingOut} onClick={closeSession} className="flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition hover:bg-rose-50 disabled:opacity-60 dark:hover:bg-rose-950/30">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"><LogOut className="h-5 w-5" /></span>
+                  <span className="min-w-0"><span className="block text-sm font-semibold text-rose-700 dark:text-rose-300">{isLoggingOut ? 'Cerrando sesión…' : 'Cerrar sesión'}</span><span className="block text-xs text-[#64748B] dark:text-[#94A3B8]">Salir de tu cuenta</span></span>
+                </button>
+                {logoutError && <p role="alert" className="px-3 pb-2 text-xs text-rose-600 dark:text-rose-300">{logoutError}</p>}
                 <div className="my-1 border-t border-[#E2E8F0] dark:border-[#263346]" />
                 <button
                   type="button"

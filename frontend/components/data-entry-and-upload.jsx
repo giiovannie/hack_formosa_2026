@@ -1,51 +1,73 @@
-'use client'
+import { useCallback, useEffect, useState } from 'react'
+import { getModule, postModule, uploadModule } from '@/src/api'
 
-import { useEffect, useRef, useState } from 'react'
-import { AlertCircle, ArrowLeft, Check, ChevronDown, CircleHelp, Database, FileSpreadsheet, FileText, LoaderCircle, LockKeyhole, Plus, Upload, X } from 'lucide-react'
-import AnimatedNumber from '@/components/animated-number'
+export default function DataEntry() {
+  const [sources, setSources] = useState([])
+  const [sourceId, setSourceId] = useState('')
+  const [dataType, setDataType] = useState('')
+  const [file, setFile] = useState(null)
+  const [record, setRecord] = useState({ product: '', quantity: '', price: '' })
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
-const sourceTypes = ['Planilla de ventas', 'Stock e inventario', 'Compras y proveedores', 'Flujo de caja']
-const formatOptions = ['CSV', 'Excel (.xlsx)', 'Formulario manual']
+  const loadSources = useCallback(async () => {
+    try {
+      const { sources: available = [] } = await getModule('/fuentes?page=1&limit=100')
+      setSources(available)
+      if (!sourceId && available[0]) setSourceId(String(available[0].id))
+    } catch (cause) { setError(cause.message) }
+  }, [sourceId])
+  useEffect(() => { loadSources() }, [loadSources])
 
-function Logo() {
-  return <div className="flex items-center gap-2.5"><div className="grid size-8 place-items-center rounded-lg bg-[#f4511e] shadow-[0_0_18px_rgba(244,81,30,.25)]"><span className="text-lg leading-none text-white">✣</span></div><span className="text-[15px] font-bold tracking-tight text-[#f3f5f7]">Stockflow</span></div>
-}
+  const processImport = async (dataImport) => {
+    const { process } = await postModule(`/etl/procesar/${dataImport.id}`)
+    if (process?.status !== 'completed') {
+      throw new Error(process?.errors?.[0] || 'El proceso ETL no terminó correctamente.')
+    }
+    await postModule(`/calidad/${dataImport.id}/validar`, {})
+    const result = await postModule(`/datos-procesados/importaciones/${dataImport.id}`, {})
+    return result.persistedRecords
+  }
+  const receive = async (event) => {
+    event.preventDefault()
+    if (!sourceId || !dataType.trim()) { setError('Elegí una fuente y el tipo de datos.'); return }
+    if (!file) { setError('Seleccioná un archivo CSV.'); return }
+    setBusy(true); setError(''); setMessage('Guardando y procesando el archivo…')
+    try {
+      const { dataImport } = await uploadModule('/datos/importaciones', { sourceId, dataType: dataType.trim() }, file)
+      const count = await processImport(dataImport)
+      setMessage(`Importación ${dataImport.id} guardada. ${count} registros persistidos.`)
+      setFile(null)
+    } catch (cause) { setMessage(''); setError(cause.message) } finally { setBusy(false) }
+  }
+  const receiveManual = async (event) => {
+    event.preventDefault()
+    if (!sourceId || !dataType.trim()) { setError('Elegí una fuente y el tipo de datos.'); return }
+    setBusy(true); setError(''); setMessage('Guardando y procesando el registro…')
+    try {
+      const { dataImport } = await postModule('/datos/registros', { sourceId: Number(sourceId), dataType: dataType.trim(), record })
+      const count = await processImport(dataImport)
+      setMessage(`Registro ${dataImport.id} guardado. ${count} registros persistidos.`)
+    } catch (cause) { setMessage(''); setError(cause.message) } finally { setBusy(false) }
+  }
+  const createSource = async (event) => {
+    event.preventDefault()
+    const formElement = event.currentTarget
+    const form = new FormData(formElement)
+    setBusy(true); setError('')
+    try {
+      await postModule('/fuentes', { name: form.get('name'), origin: form.get('origin'), type: 'internal', status: 'active' })
+      formElement.reset()
+      await loadSources()
+    } catch (cause) { setError(cause.message) } finally { setBusy(false) }
+  }
 
-function SelectField({ label, value, onChange, options }) {
-  return <label className="block"><span className="mb-2 block text-sm font-medium text-[#dce1e8]">{label}</span><div className="relative"><select value={value} onChange={(event) => onChange(event.target.value)} className="h-11 w-full appearance-none rounded-lg border border-[#293546] bg-[#121a26] px-3.5 pr-10 text-sm text-[#f3f5f7] outline-none transition focus:border-[#ff6b19] focus:ring-2 focus:ring-[#ff6b19]/15"><option value="">Seleccioná una opción</option>{options.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown className="pointer-events-none absolute right-3 top-3.5 text-[#8490a3]" size={16} /></div></label>
-}
-
-function StatusPill({ tone, children }) {
-  const styles = { success: 'border-[#2b6c55] bg-[#12271f] text-[#6ee7b7]', warning: 'border-[#6d4c29] bg-[#2a1d12] text-[#ffb36e]', danger: 'border-[#713a37] bg-[#2b1515] text-[#ff9584]' }
-  return <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium ${styles[tone]}`}>{children}</span>
-}
-
-function Metric({ label, value, tone = 'neutral', delay = 0 }) {
-  return <div className="rounded-lg border border-[#293546] bg-[#121a26] p-4"><p className="text-xs text-[#8490a3]">{label}</p><p className={`mt-1 text-xl font-semibold ${tone === 'good' ? 'text-[#6ee7b7]' : tone === 'bad' ? 'text-[#ff9584]' : 'text-[#f3f5f7]'}`}><AnimatedNumber value={value} delay={delay} /></p></div>
-}
-
-function ManualForm({ onBack }) {
-  const [rows, setRows] = useState([{ product: '', quantity: '', price: '' }])
-  const addRow = () => setRows((current) => [...current, { product: '', quantity: '', price: '' }])
-  const updateRow = (index, field, value) => setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row))
-  return <div data-page-enter="" className="rounded-xl border border-[#253142] bg-[#0f1621] p-5 sm:p-7"><div className="mb-6 flex items-start justify-between gap-4"><div><div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-[.16em] text-[#ff792c]"><FileText size={14} /> Formulario manual</div><h2 className="text-lg font-semibold">Cargá tus productos</h2><p className="mt-1 text-sm text-[#8490a3]">Agregá los datos principales de tu stock. Podés sumar filas cuando quieras.</p></div><button onClick={onBack} className="rounded-lg border border-[#293546] p-2 text-[#8490a3] hover:text-white" aria-label="Volver a cargar archivo"><ArrowLeft size={17} /></button></div><div className="overflow-x-auto rounded-lg border border-[#293546]"><div className="min-w-[600px]"><div className="grid grid-cols-[1.5fr_1fr_1fr_44px] gap-3 border-b border-[#293546] bg-[#121a26] px-4 py-3 text-xs font-medium text-[#8490a3]"><span>Producto</span><span>Unidades</span><span>Precio unitario</span><span /></div>{rows.map((row, index) => <div key={index} className="grid grid-cols-[1.5fr_1fr_1fr_44px] gap-3 border-b border-[#202b39] px-4 py-3 last:border-0"><input value={row.product} onChange={(event) => updateRow(index, 'product', event.target.value)} placeholder="Ej. Yerba 1 kg" className="h-10 rounded-md border border-[#293546] bg-[#0b111b] px-3 text-sm text-white outline-none focus:border-[#ff6b19]" /><input value={row.quantity} onChange={(event) => updateRow(index, 'quantity', event.target.value)} placeholder="0" inputMode="numeric" className="h-10 rounded-md border border-[#293546] bg-[#0b111b] px-3 text-sm text-white outline-none focus:border-[#ff6b19]" /><input value={row.price} onChange={(event) => updateRow(index, 'price', event.target.value)} placeholder="$ 0,00" className="h-10 rounded-md border border-[#293546] bg-[#0b111b] px-3 text-sm text-white outline-none focus:border-[#ff6b19]" /><button onClick={() => setRows((current) => current.length === 1 ? current : current.filter((_, rowIndex) => rowIndex !== index))} className="grid size-10 place-items-center rounded-md text-[#8490a3] hover:bg-[#2a1a13] hover:text-[#ff8b6b]" aria-label="Eliminar fila"><X size={16} /></button></div>)}</div></div><button onClick={addRow} className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#ff8a43] hover:text-[#ffb078]"><Plus size={16} /> Agregar fila</button><div className="mt-7 flex flex-col-reverse justify-between gap-4 border-t border-[#253142] pt-6 sm:flex-row sm:items-center"><span className="text-xs text-[#8490a3]">Los campos vacíos se podrán completar más adelante.</span><button className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#ff6b19] px-6 text-sm font-semibold text-white shadow-lg shadow-[#ff6b19]/15 hover:bg-[#ff7c31]"><Check size={16} /> Recibir datos</button></div></div>
-}
-
-export default function Page() {
-  const inputRef = useRef(null)
-  const [source, setSource] = useState('Planilla de ventas')
-  const [format, setFormat] = useState('CSV')
-  const [file, setFile] = useState({ name: 'ventas_agosto_2026.csv', size: '2,4 MB' })
-  const [progress, setProgress] = useState(100)
-  const [status, setStatus] = useState('success')
-  const [manual, setManual] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
-
-  useEffect(() => { if (progress >= 100) return undefined; const timer = setInterval(() => setProgress((current) => Math.min(current + 10, 100)), 120); return () => clearInterval(timer) }, [progress])
-  const chooseFile = (event) => { const selected = event.target.files?.[0]; if (!selected) return; setFile({ name: selected.name, size: `${(selected.size / 1024 / 1024).toFixed(1)} MB` }); setProgress(0); setStatus('loading'); setSubmitted(false) }
-  const receive = () => { if (!file) return; setSubmitted(true); setProgress(0); setStatus('loading'); setTimeout(() => setStatus('success'), 1400) }
-
-  if (manual) return <main className="min-h-screen bg-[#090d15] text-[#f3f5f7] selection:bg-[#ff6b19]/30"><header className="border-b border-[#202b39] bg-[#0a0f18]/95"><div className="mx-auto flex h-[66px] max-w-[1180px] items-center justify-between px-5 lg:px-8"><Logo /><div className="flex items-center gap-4"><span className="hidden text-sm text-[#8f9bac] sm:block">Hola, Martina</span><div className="grid size-8 place-items-center rounded-full bg-[#293546] text-xs font-semibold text-[#dbe2ea]">ML</div></div></div></header><div className="mx-auto max-w-[980px] px-5 py-8 lg:px-8 lg:py-12"><button onClick={() => setManual(false)} className="mb-8 inline-flex items-center gap-2 text-sm text-[#8490a3] hover:text-white"><ArrowLeft size={16} /> Volver a carga de datos</button><ManualForm onBack={() => setManual(false)} /></div></main>
-
-  return <main className="min-h-screen bg-[#090d15] text-[#f3f5f7] selection:bg-[#ff6b19]/30"><header className="border-b border-[#202b39] bg-[#0a0f18]/95"><div className="mx-auto flex h-[66px] max-w-[1180px] items-center justify-between px-5 lg:px-8"><Logo /><nav className="hidden items-center gap-8 text-sm text-[#8792a4] md:flex"><a href="#cargar" className="text-[#e8edf3]">Cargar datos</a><a href="#historial" className="hover:text-white">Historial</a><a href="#ayuda" className="hover:text-white">Ayuda</a></nav><div className="flex items-center gap-4"><span className="hidden text-sm text-[#8f9bac] sm:block">Hola, Martina</span><button aria-label="Abrir ayuda" className="grid size-8 place-items-center rounded-full border border-[#293546] text-[#8490a3] hover:text-white"><CircleHelp size={16} /></button><div className="grid size-8 place-items-center rounded-full bg-[#293546] text-xs font-semibold text-[#dbe2ea]">ML</div></div></div></header><div className="mx-auto max-w-[1180px] px-5 py-8 lg:px-8 lg:py-10"><div data-page-enter="" className="mb-9 flex items-end justify-between gap-6"><div><p className="mb-2 text-xs font-medium uppercase tracking-[.18em] text-[#ff792c]">Datos</p><h1 className="text-2xl font-bold tracking-tight text-[#f7f8fa] sm:text-[30px]">Cargá tus datos</h1><p className="mt-2 max-w-xl text-sm text-[#8e9aac]">Subí una fuente para empezar a convertir tus números en decisiones claras.</p></div><div className="hidden items-center gap-3 rounded-lg border border-[#293546] bg-[#0f1621] px-3 py-2 text-xs text-[#8490a3] sm:flex"><Database size={15} className="text-[#ff792c]" /> Última carga: hoy, 10:42</div></div><div id="cargar" className="grid gap-6 lg:grid-cols-[1fr_300px]"><div className="space-y-6"><section data-page-enter="" className="rounded-xl border border-[#253142] bg-[#0f1621] p-5 shadow-2xl shadow-black/10 sm:p-7"><div className="mb-7"><h2 className="text-lg font-semibold">Elegí qué datos querés recibir</h2><p className="mt-1 text-sm text-[#8490a3]">Definí la fuente y el tipo de información antes de cargarla.</p></div><div className="grid gap-5 sm:grid-cols-2"><SelectField label="Fuente de datos" value={source} onChange={setSource} options={sourceTypes} /><SelectField label="Formato" value={format} onChange={(value) => { setFormat(value); if (value === 'Formulario manual') setManual(true) }} options={formatOptions} /></div></section><section data-page-enter="" className="rounded-xl border border-[#253142] bg-[#0f1621] p-5 sm:p-7"><div className="mb-6 flex items-start justify-between"><div><h2 className="text-lg font-semibold">Cargá tu archivo</h2><p className="mt-1 text-sm text-[#8490a3]">Aceptamos archivos CSV de hasta 25 MB.</p></div><FileSpreadsheet className="text-[#ff792c]" size={21} /></div><input ref={inputRef} type="file" accept=".csv,.xlsx" onChange={chooseFile} className="sr-only" /><button onClick={() => inputRef.current?.click()} className="group flex min-h-[160px] w-full flex-col items-center justify-center rounded-xl border border-dashed border-[#405066] bg-[#121a26] px-5 text-center transition hover:border-[#ff6b19] hover:bg-[#171e2b]"><span className="mb-3 grid size-11 place-items-center rounded-full bg-[#2a1a13] text-[#ff792c] transition group-hover:scale-105"><Upload size={20} /></span><span className="text-sm font-medium text-[#e8edf3]">Arrastrá tu archivo acá o <span className="text-[#ff8a43]">seleccionalo</span></span><span className="mt-1 text-xs text-[#718096]">CSV o Excel · máximo 25 MB</span></button>{file && <div className="mt-5 rounded-lg border border-[#293546] bg-[#121a26] p-4"><div className="flex items-center gap-3"><div className="grid size-9 place-items-center rounded-md bg-[#2a1a13] text-[#ff792c]"><FileSpreadsheet size={18} /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium text-[#edf1f5]">{file.name}</p><p className="mt-0.5 text-xs text-[#8490a3]">{file.size} · {progress === 100 ? 'Listo para recibir' : 'Procesando archivo...'}</p></div>{progress === 100 ? <StatusPill tone="success"><Check size={12} /> Listo</StatusPill> : <LoaderCircle className="animate-spin text-[#ff792c]" size={18} />}</div>{progress < 100 && <div className="mt-4"><div className="mb-1.5 flex justify-between text-[11px] text-[#8490a3]"><span>Analizando archivo</span><span>{progress}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-[#253142]"><div className="h-full rounded-full bg-[#ff6b19] transition-all" style={{ width: `${progress}%` }} /></div></div>}</div>}{status === 'success' && submitted && <div className="mt-5 flex gap-3 rounded-lg border border-[#2b6c55] bg-[#12271f] p-4 text-sm text-[#a8f0cc]"><Check className="mt-0.5 shrink-0" size={17} /><div><p className="font-medium">Datos recibidos correctamente</p><p className="mt-1 text-xs text-[#7fd6ad]">La información ya está disponible para tus análisis.</p></div></div>}<button onClick={receive} disabled={!file || progress < 100} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#ff6b19] text-sm font-semibold text-white shadow-lg shadow-[#ff6b19]/15 transition hover:bg-[#ff7c31] disabled:cursor-not-allowed disabled:opacity-40"><Check size={16} /> Recibir datos</button></section><section id="historial" className="rounded-xl border border-[#253142] bg-[#0f1621] p-5 sm:p-7"><div data-page-enter="" className="mb-6 flex items-center justify-between"><div><h2 className="text-lg font-semibold">Resultado de la recepción</h2><p className="mt-1 text-sm text-[#8490a3]">Detalle de los registros encontrados en tu archivo.</p></div><StatusPill tone="success"><Check size={12} /> Procesado</StatusPill></div><div className="grid grid-cols-3 gap-3"><Metric label="Registros leídos" value="1.248" delay={0.15} /><Metric label="Aceptados" value="1.231" tone="good" delay={0.3} /><Metric label="Rechazados" value="17" tone="bad" delay={0.45} /></div><div className="mt-5 space-y-3"><div className="flex items-start gap-3 rounded-lg border border-[#293546] bg-[#121a26] p-3.5"><Check className="mt-0.5 shrink-0 text-[#6ee7b7]" size={16} /><div><p className="text-sm font-medium text-[#dce1e8]">1.231 registros listos para analizar</p><p className="mt-1 text-xs text-[#8490a3]">Ventas del 1 al 31 de agosto de 2026.</p></div></div><div className="flex items-start gap-3 rounded-lg border border-[#6d4c29] bg-[#2a1d12] p-3.5"><AlertCircle className="mt-0.5 shrink-0 text-[#ffb36e]" size={16} /><div><p className="text-sm font-medium text-[#f2d0ad]">17 registros necesitan revisión</p><p className="mt-1 text-xs text-[#c59a70]">Faltan datos obligatorios o tienen un formato inválido. <button className="font-medium text-[#ffb36e] underline underline-offset-2">Ver errores</button></p></div></div></div></section></div><aside className="hidden lg:block"><div data-page-enter="" className="sticky top-6 rounded-xl border border-[#253142] bg-[#0f1621] p-5"><p className="mb-5 text-xs font-semibold uppercase tracking-[.16em] text-[#8490a3]">Cargas recientes</p><div className="space-y-4"><div className="flex gap-3"><div className="grid size-8 place-items-center rounded-md bg-[#2a1a13] text-[#ff792c]"><FileSpreadsheet size={15} /></div><div className="min-w-0"><p className="truncate text-sm text-[#dce1e8]">ventas_agosto_2026.csv</p><p className="mt-1 text-xs text-[#8490a3]">Hoy, 10:42 · <span className="text-[#6ee7b7]">Procesado</span></p></div></div><div className="flex gap-3"><div className="grid size-8 place-items-center rounded-md bg-[#2a1a13] text-[#ff792c]"><FileSpreadsheet size={15} /></div><div className="min-w-0"><p className="truncate text-sm text-[#dce1e8]">stock_tienda_centro.csv</p><p className="mt-1 text-xs text-[#8490a3]">Ayer, 16:08 · <span className="text-[#6ee7b7]">Procesado</span></p></div></div></div><div className="my-6 h-px bg-[#253142]" /><div className="flex gap-3 text-xs leading-5 text-[#8490a3]"><LockKeyhole className="mt-0.5 shrink-0 text-[#ff792c]" size={15} /><p>Tus datos están protegidos y solo se usan para mejorar tus análisis.</p></div></div></aside></div></div><div id="ayuda" className="sr-only">Centro de ayuda de Stockflow</div></main>
+  return <main className="min-h-screen bg-[#090d15] px-5 py-10 text-[#f3f5f7]"><div className="mx-auto max-w-4xl"><h1 className="text-3xl font-bold">Cargar datos</h1><p className="mt-2 text-sm text-[#8e9aac]">Los archivos y registros se guardan, procesan y persisten en la base de datos de tu empresa.</p>
+    {!sources.length && <form onSubmit={createSource} className="mt-6 grid gap-3 rounded-xl border border-[#293749] bg-[#0f1621] p-5 sm:grid-cols-3"><h2 className="sm:col-span-3 font-semibold">Creá tu primera fuente interna</h2><input name="name" required placeholder="Nombre de la fuente" className="rounded-lg border border-[#334154] bg-[#111b29] p-3 text-sm"/><input name="origin" required placeholder="Sistema u origen" className="rounded-lg border border-[#334154] bg-[#111b29] p-3 text-sm"/><button disabled={busy} className="rounded-lg bg-[#ff6b19] p-3 text-sm font-semibold">Crear fuente</button></form>}
+    {sources.length > 0 && <><div className="mt-6 grid gap-3 rounded-xl border border-[#293749] bg-[#0f1621] p-5 sm:grid-cols-2"><label className="text-sm">Fuente<select value={sourceId} onChange={(event) => setSourceId(event.target.value)} className="mt-2 block w-full rounded-lg border border-[#334154] bg-[#111b29] p-3">{sources.map((source) => <option key={source.id} value={source.id}>{source.name}</option>)}</select></label><label className="text-sm">Tipo de datos<input required value={dataType} onChange={(event) => setDataType(event.target.value)} placeholder="Ej. inventario" className="mt-2 block w-full rounded-lg border border-[#334154] bg-[#111b29] p-3"/></label></div>
+    <form onSubmit={receive} className="mt-4 rounded-xl border border-[#293749] bg-[#0f1621] p-5"><h2 className="font-semibold">Importar archivo CSV</h2><p className="mt-1 text-xs text-[#8e9aac]">Formato UTF-8, máximo 1 MB.</p><input type="file" accept=".csv,text/csv" required onChange={(event) => setFile(event.target.files?.[0] || null)} className="mt-4 block w-full text-sm"/><button disabled={busy} className="mt-4 rounded-lg bg-[#ff6b19] px-4 py-2.5 text-sm font-semibold disabled:opacity-50">Importar y procesar</button></form>
+    <form onSubmit={receiveManual} className="mt-4 rounded-xl border border-[#293749] bg-[#0f1621] p-5"><h2 className="font-semibold">Agregar registro manual</h2><div className="mt-4 grid gap-3 sm:grid-cols-3">{Object.entries(record).map(([key, value]) => <label key={key} className="text-sm capitalize">{key}<input required value={value} onChange={(event) => setRecord((current) => ({ ...current, [key]: event.target.value }))} className="mt-2 block w-full rounded-lg border border-[#334154] bg-[#111b29] p-3"/></label>)}</div><button disabled={busy} className="mt-4 rounded-lg border border-[#46566b] px-4 py-2.5 text-sm font-semibold disabled:opacity-50">Guardar registro</button></form></>}
+    {message && <p role="status" className="mt-4 rounded-lg border border-emerald-800 bg-emerald-950/40 p-4 text-sm text-emerald-200">{message}</p>}{error && <p role="alert" className="mt-4 rounded-lg border border-rose-800 bg-rose-950/40 p-4 text-sm text-rose-200">{error}</p>}
+  </div></main>
 }
