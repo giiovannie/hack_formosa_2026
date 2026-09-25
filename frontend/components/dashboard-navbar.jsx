@@ -1,14 +1,7 @@
-<<<<<<< HEAD
 import { useEffect, useRef, useState } from "react"
 import { Bell, ChevronDown, Database, FileCheck2, GitBranch, LayoutDashboard, Settings2, Upload } from "lucide-react"
 
 const navItems = [
-=======
-import { useEffect, useRef, useState } from "react"
-import { Bell, ChevronDown, Database, FileCheck2, GitBranch, LayoutDashboard, Settings2, Upload } from "lucide-react"
-
-const navItems = [
->>>>>>> 853cee2583f556d8931ed66aa632ecc5f97c087c
   { id: "data-entry", label: "Carga de datos", icon: Upload },
   { id: "processing", label: "Procesamiento", icon: Database },
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
