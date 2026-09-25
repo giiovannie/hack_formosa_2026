@@ -14,7 +14,24 @@ const navItems = [
 
 export default function DashboardNavbar({ activeView, onNavigate }) {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
+  const [carouselCenter, setCarouselCenter] = useState(0)
+  const [isCarouselEngaged, setIsCarouselEngaged] = useState(false)
   const profileMenuRef = useRef(null)
+  const carouselRef = useRef(null)
+
+  useEffect(() => {
+    const activeIndex = navItems.findIndex(({ id }) => id === activeView)
+    if (activeIndex < 0) return
+    setCarouselCenter(activeIndex)
+
+    const viewport = carouselRef.current
+    const activeItem = viewport?.children[activeIndex]
+    if (!viewport || !activeItem) return
+    viewport.scrollTo({
+      left: activeItem.offsetLeft - (viewport.clientWidth - activeItem.clientWidth) / 2,
+      behavior: "smooth",
+    })
+  }, [activeView])
 
   useEffect(() => {
     if (!isProfileMenuOpen) return undefined
@@ -41,18 +58,48 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-orange-600 to-orange-500"><img src="/gato.svg" alt="Stockflow" className="h-10 w-10 object-contain" /></div>
           <div className="hidden sm:block"><p className="text-xs uppercase tracking-[0.18em] text-[#64748B] dark:text-[#94A3B8]">Workspace</p><p className="text-base font-semibold text-[#1E293B] dark:text-[#F8FAFC]">Stockflow</p></div>
         </a>
-        <div className="hidden items-center gap-1 rounded-xl border border-[#E2E8F0] bg-white/80 p-1 dark:border-[#263346] dark:bg-[#151D2A]/80 md:flex">
-          {navItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => onNavigate(id)}
-              className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${activeView === id ? "bg-brand-blue font-semibold text-white shadow-sm dark:bg-brand dark:text-[#0B0F17]" : "text-[#64748B] hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:text-[#F8FAFC]"}`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          ))}
+        <div
+          className={`group relative hidden w-[min(38vw,520px)] shrink items-center overflow-hidden px-1 transition-opacity duration-300 md:flex ${isCarouselEngaged ? "opacity-100" : "opacity-65 hover:opacity-100 focus-within:opacity-100"}`}
+          onMouseEnter={() => setIsCarouselEngaged(true)}
+          onMouseLeave={() => setIsCarouselEngaged(false)}
+          onWheel={(event) => {
+            if (!carouselRef.current) return
+            event.preventDefault()
+            carouselRef.current.scrollLeft += Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX
+          }}
+          onMouseMove={(event) => {
+            const items = [...(carouselRef.current?.children ?? [])]
+            const pointerX = event.clientX
+            const nearestIndex = items.reduce((nearest, item, index) => {
+              const distance = Math.abs(item.getBoundingClientRect().left + item.offsetWidth / 2 - pointerX)
+              return distance < nearest.distance ? { index, distance } : nearest
+            }, { index: carouselCenter, distance: Infinity }).index
+            setCarouselCenter(nearestIndex)
+          }}
+        >
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-[#F8F9FA] to-transparent dark:from-[#0B0F17]" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-[#F8F9FA] to-transparent dark:from-[#0B0F17]" />
+          <div ref={carouselRef} role="group" aria-label="Navegación principal" className="flex w-full items-center gap-1 overflow-x-auto scroll-smooth py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {navItems.map(({ id, label, icon: Icon }, index) => {
+              const distance = index - carouselCenter
+              const scale = Math.max(0.78, 1 - Math.abs(distance) * 0.08)
+              const opacity = Math.max(0.42, 1 - Math.abs(distance) * 0.18)
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-label={label}
+                  aria-current={activeView === id ? "page" : undefined}
+                  onClick={() => onNavigate(id)}
+                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-[transform,opacity,background-color,color] duration-200 ${activeView === id ? "bg-brand-blue font-semibold text-white shadow-sm dark:bg-brand dark:text-[#0B0F17]" : "text-[#64748B] hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:text-[#F8FAFC]"}`}
+                  style={{ opacity, transform: `perspective(500px) rotateY(${distance * -8}deg) scale(${scale})` }}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span>{label}</span>
+                </button>
+              )
+            })}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button type="button" aria-label="Ver alertas" aria-current={activeView === "alerts" ? "page" : undefined} onClick={() => onNavigate("alerts")} className={`relative rounded-lg p-2 transition ${activeView === "alerts" ? "bg-brand-blue/10 text-brand-blue dark:bg-brand/10 dark:text-brand" : "text-[#64748B] hover:bg-white hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:bg-[#151D2A] dark:hover:text-[#F8FAFC]"}`}><Bell className="h-5 w-5" /><span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" /></button>
