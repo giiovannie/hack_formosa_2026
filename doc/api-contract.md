@@ -1241,6 +1241,16 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E14 — Tendencias y estimaciones
+
+`GET /api/v1/tendencias?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` requiere sesión y reutiliza E12: series de registros procesados, filtros por empresa/fuente/tipo, período UTC y máximo 120 intervalos. `metric` admite las métricas E11; las numéricas requieren `field`.
+
+Respuesta `200`: `{ message, analysis: { metric, field, from, to, interval, filters, status, trend, estimate, evidence } }`. Con al menos tres puntos históricos seguros, `status` es `estimated`; `trend` contiene `direction` (`increasing`, `decreasing`, `stable`), `slopePerInterval` y `method: "least_squares_linear"`. `estimate` contiene `kind: "estimate"`, el siguiente período, `value` y el método. `evidence` conserva los puntos históricos reales usados. La extrapolación lineal es descriptiva y no garantiza resultados futuros. Las estimaciones de conteos negativos se limitan a cero. Los cálculos usan números finitos de magnitud hasta 10¹²; fuera de ese rango se devuelve `not_estimable` sin estimación. Con menos de tres puntos se devuelve `insufficient_data` sin tendencia ni estimación.
+
+La consulta no modifica históricos. Parámetros inválidos responden `400`; fuente ajena o inexistente, `404`.
+
+---
+
 ## BE E13 — Detección de patrones
 
 `GET /api/v1/patrones?from=&to=&interval=day|month|year&metric=&field=&dataType=&sourceId=` requiere sesión y reutiliza los filtros, métricas y períodos UTC de E12 sobre registros procesados de la empresa. Acepta como máximo 120 intervalos.

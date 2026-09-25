@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E13 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E14 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -548,6 +548,30 @@ test('BE E01–E13 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('GET', '/patrones?metric=count&interval=day&from=2026-01-01&to=2026-05-01', undefined, cookieA)).status, 400);
     assert.equal((await request('GET', '/patrones?metric=sum&interval=month&from=2026-08-01&to=2026-11-30', undefined, cookieA)).status, 400);
     assert.equal((await models.ProcessedRecordModel.findByPk(records[0].id)).createdAt.toISOString(), '2026-08-15T12:00:00.000Z');
+  });
+  await t.test('E14 distinguishes trend estimate from supported historical points', async () => {
+    const path = '/tendencias?metric=count&interval=month&from=2026-08-01&to=2026-11-30';
+    const result = await request('GET', path, undefined, cookieA);
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.equal(result.body.analysis.status, 'estimated');
+    assert.equal(result.body.analysis.trend.direction, 'stable');
+    assert.equal(result.body.analysis.estimate.kind, 'estimate');
+    assert.equal(result.body.analysis.estimate.period, '2026-12');
+    assert.equal(result.body.analysis.estimate.value, 1);
+    assert.equal(result.body.analysis.evidence.length, 4);
+    assert.equal(result.body.analysis.evidence.every((point) => point.value === 1), true);
+    const numeric = await request('GET', '/tendencias?metric=sum&field=quantity&interval=month&from=2026-08-01&to=2026-11-30', undefined, cookieA);
+    assert.equal(numeric.body.analysis.status, 'estimated');
+    assert.equal(numeric.body.analysis.evidence.length, 3);
+    const limited = await request('GET', '/tendencias?metric=count&interval=month&from=2026-08-01&to=2026-09-30', undefined, cookieA);
+    assert.equal(limited.body.analysis.status, 'insufficient_data');
+    assert.equal(limited.body.analysis.estimate, null);
+    assert.equal((await request('GET', path, undefined, cookieB)).body.analysis.status, 'insufficient_data');
+    assert.equal((await request('GET', path)).status, 401);
+    assert.equal((await request('GET', '/tendencias?metric=count&interval=week&from=2026-08-01&to=2026-11-30', undefined, cookieA)).status, 400);
+    const before = await models.ProcessedRecordModel.count({ where: { companyId: companyA.body.company.id } });
+    await request('GET', path, undefined, cookieA);
+    assert.equal(await models.ProcessedRecordModel.count({ where: { companyId: companyA.body.company.id } }), before);
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);
