@@ -1,5 +1,31 @@
 # API-CONTRACT.md
 
+## BE E01 — Empresas y usuarios (IMPLEMENTADO)
+
+Tarjeta: https://trello.com/c/dSiy7F4C (130). Contrato aprobado por el usuario el 2026-09-25. Implementado y validado mediante pruebas HTTP sobre MySQL real en `backend/test/api.integration.test.js`.
+
+Base: `/api/v1`. Propiedades JSON en inglés. Usuario público: `id`, `firstName`, `lastName`, `email`, `role`, `companyId`, `createdAt`, `updatedAt`; nunca `password`. Empresa pública: `id`, `name`, `createdAt`, `updatedAt`.
+
+| Método y ruta | Acceso | Entrada | Respuesta exitosa |
+| --- | --- | --- | --- |
+| POST `/empresas` | Público | `{ "name": "Empresa", "owner": { "firstName": "Ana", "lastName": "Pérez", "email": "ana@example.com", "password": "..." } }` | 201 `{ message, company, user }`; alta transaccional, primer usuario owner; no inicia sesión automáticamente |
+| POST `/auth/login` | Público | `{ "email": "ana@example.com", "password": "..." }` | 200 `{ message, user }` y cookie de sesión |
+| GET `/empresas/:id` | Usuario autenticado de esa empresa | ID entero positivo | 200 `{ message, company }` |
+| GET `/usuarios` | owner | `page` (1 por defecto), `limit` (10 por defecto, máximo 100) | 200 `{ message, users, pagination: { page, limit, total, totalPages } }` |
+| POST `/usuarios` | owner | `{ firstName, lastName, email, password, role }` | 201 `{ message, user }`; companyId obtenido de la sesión |
+| PUT `/usuarios/:id` | owner de la misma empresa | `{ firstName, lastName, email, role }`; `password` opcional para cambiarla | 200 `{ message, user }` |
+| DELETE `/usuarios/:id` | owner de la misma empresa | ID entero positivo | 200 `{ message }`; eliminación lógica |
+
+Los campos indicados son obligatorios salvo indicación contraria. Nombres no vacíos, máximo 255 caracteres; email válido, máximo 255, sin espacios externos y normalizado a minúsculas. Contraseña de 8 caracteres como mínimo y máximo 72 bytes UTF-8 (límite de bcrypt). Roles: `owner` y `member`, enviados explícitamente para alta/edición de usuarios. Rechazar campos extra, incluido `companyId`. Email único global, incluso para usuarios eliminados; sin recuperación de cuentas en esta tarea.
+
+Autenticación propuesta: JWT HS256 en cookie `token`, `HttpOnly`, `SameSite=Strict`, `Path=/api/v1`, `Secure` en producción. Duración obligatoria desde `JWT_EXPIRES_IN` (número de segundos o duración con unidad). Payload mínimo: `id`, `companyId`; rol y estado activo se verifican en MySQL en cada solicitud. No devolver el JWT en JSON. CORS con un único origen explícito `FRONTEND_URL` y credenciales; solicitudes de escritura de navegador deben corresponder a ese origen. Frontend y API deben desplegarse bajo el mismo sitio para esta política de cookies.
+
+No permitir eliminar ni degradar al último owner activo: responder 409 y conservar los datos. Serializar cambios de usuarios por empresa mediante transacción y bloqueo de la fila Company para evitar carreras. Una empresa o usuario eliminado no puede iniciar sesión ni reutilizar una sesión anterior.
+
+Errores: 400 validación (formato general `message`, `errors`); 401 credenciales/sesión inválidas; 403 rol insuficiente/origen no permitido; 404 recurso inexistente o ajeno; 409 email ocupado o último owner; 500 error interno sin detalles. Login usa el mismo mensaje para email inexistente, contraseña incorrecta y cuenta inactiva.
+
+Decisiones aprobadas: alta pública Company + owner con JSON anidado; login solo por email según database.md; cookie y duración configurada; contrato de CRUD/paginación/validación; bloqueo del último owner.
+
 ## Propósito
 
 Este documento define el contrato de comunicación entre Frontend y Backend.
