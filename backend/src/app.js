@@ -28,6 +28,8 @@ import { createDashboardRouter } from './routes/dashboard.routes.js';
 import { createDashboardControllers } from './controllers/dashboard.controller.js';
 import { createVisualizationRouter } from './routes/visualization.routes.js';
 import { createVisualizationControllers } from './controllers/visualization.controller.js';
+import { createMetricRouter } from './routes/metric.routes.js';
+import { createMetricControllers } from './controllers/metric.controller.js';
 
 export const createApp = ({ database, models, config }) => {
   if (!config.FRONTEND_URL || !/^https?:$/.test(new URL(config.FRONTEND_URL).protocol)) {
@@ -60,6 +62,7 @@ export const createApp = ({ database, models, config }) => {
   app.use('/api/v1/trazabilidad', createTraceRouter(createTraceControllers(models), auth));
   app.use('/api/v1/dashboard', createDashboardRouter(createDashboardControllers(models), auth));
   app.use('/api/v1/visualizaciones', createVisualizationRouter(createVisualizationControllers(models), auth));
+  app.use('/api/v1/metricas', createMetricRouter(createMetricControllers(database, models), auth));
   app.use((req, res) => res.status(404).json({ message: 'Recurso no encontrado' }));
   app.use(errorMiddleware);
   return app;

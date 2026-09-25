@@ -40,6 +40,8 @@ Al actualizar una instalación E01, ejecutar `npm run db:init` para crear esa ta
 Se agregó `multer` porque la API recibe archivos multipart. Limita CSV a 1 MiB en memoria; el Backend no transforma ni clasifica sus filas. Consultar `doc/api-contract.md` para los campos y respuestas.
 # ETL (BE E05)
 
+BE E11 ofrece métricas configurables en `/api/v1/metricas` sobre registros procesados. `count` cuenta registros; `sum`, `average`, `min` y `max` requieren una columna numérica explícita y devuelven cadenas decimales, con cantidad de valores omitidos.
+
 BE E10 prepara series y agregados para gráficos, tablas y tarjetas en `/api/v1/visualizaciones`, reutilizando los filtros UTC del dashboard. La métrica genérica del MVP es `record_count` sobre `ProcessedRecord`.
 
 BE E09 expone un dashboard autenticado en `/api/v1/dashboard`, con widgets individuales agregados por tipo y fuente. Los filtros de período usan la fecha de persistencia UTC de `ProcessedRecord`.

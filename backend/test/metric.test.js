@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { calculateMetric } from '../src/helpers/calculateMetric.helper.js';
+
+const rows = [
+  { values: { amount: '-0.1' } },
+  { values: { amount: '0.2' } },
+  { values: { amount: 'no disponible' } },
+  { values: {} },
+];
+const model = {
+  count: async () => rows.length,
+  findAll: async ({ offset, limit }) => rows.slice(offset, offset + limit),
+};
+
+test('metrics preserve decimal precision and disclose skipped records', async () => {
+  assert.deepEqual(await calculateMetric(model, {}, 'count'), { value: 4, includedRecords: 4, skippedRecords: 0 });
+  assert.deepEqual(await calculateMetric(model, {}, 'sum', 'amount'), { value: '0.1', includedRecords: 2, skippedRecords: 2 });
+  assert.equal((await calculateMetric(model, {}, 'average', 'amount')).value, '0.05');
+  assert.equal((await calculateMetric(model, {}, 'min', 'amount')).value, '-0.1');
+  assert.equal((await calculateMetric(model, {}, 'max', 'amount')).value, '0.2');
+  assert.deepEqual(await calculateMetric(model, {}, 'sum', 'missing'), { value: null, includedRecords: 0, skippedRecords: 4 });
+});

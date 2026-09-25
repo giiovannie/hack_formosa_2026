@@ -7,7 +7,7 @@ import { createDatabase } from '../src/config/database.js';
 import { initializeModels } from '../src/models/relaciones.js';
 import { createApp } from '../src/app.js';
 
-test('BE E01–E10 HTTP contracts and isolation on real MySQL', async (t) => {
+test('BE E01–E11 HTTP contracts and isolation on real MySQL', async (t) => {
   // This suite creates and removes only its own randomly named database.
   // It never loads .env or uses the application's DB_NAME.
   const name = `be_e01_test_${randomBytes(10).toString('hex')}`;
@@ -462,6 +462,35 @@ test('BE E01–E10 HTTP contracts and isolation on real MySQL', async (t) => {
     assert.equal((await request('GET', '/visualizaciones?type=line&groupBy=sourceId', undefined, cookieA)).status, 400);
     assert.equal((await request('GET', '/visualizaciones?type=card&groupBy=day', undefined, cookieA)).status, 400);
     assert.equal((await request('GET', '/visualizaciones?type=bar&sourceId=2147483647', undefined, cookieA)).status, 404);
+  });
+  await t.test('E11 computes configurable metrics only from tenant processed data', async () => {
+    const count = await request('GET', '/metricas?metric=count&dataType=sales', undefined, cookieA);
+    assert.equal(count.status, 200, JSON.stringify(count.body));
+    assert.equal(count.body.metric.value, 3);
+    const sum = await request('GET', '/metricas?metric=sum&field=quantity&dataType=sales', undefined, cookieA);
+    assert.equal(sum.status, 200, JSON.stringify(sum.body));
+    assert.equal(sum.body.metric.value, '7');
+    assert.equal(sum.body.metric.includedRecords, 3);
+    assert.equal((await request('GET', '/metricas?metric=average&field=quantity', undefined, cookieA)).body.metric.value, '2.333333');
+    assert.equal((await request('GET', '/metricas?metric=min&field=quantity', undefined, cookieA)).body.metric.value, '2');
+    assert.equal((await request('GET', '/metricas?metric=max&field=quantity', undefined, cookieA)).body.metric.value, '3');
+    assert.equal((await request('GET', '/metricas?metric=sum&field=quantity', undefined, cookieB)).body.metric.value, null);
+    assert.equal((await request('GET', '/metricas?metric=count&to=2000-01-01', undefined, cookieA)).body.metric.value, 0);
+    assert.equal((await request('GET', '/metricas?metric=count&sourceId=2147483647', undefined, cookieA)).status, 404);
+    assert.equal((await request('GET', '/metricas?metric=count')).status, 401);
+    assert.equal((await request('GET', '/metricas?metric=sum', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/metricas?metric=count&field=quantity', undefined, cookieA)).status, 400);
+    assert.equal((await request('GET', '/metricas?metric=invalid', undefined, cookieA)).status, 400);
+    const unknown = await uploadCsv(cookieA, importSource.id, 'unknown.csv', 'product,quantity\nD,N/A\n');
+    assert.equal(unknown.status, 201);
+    const unknownId = unknown.body.dataImport.id;
+    assert.equal((await request('POST', `/etl/procesar/${unknownId}`, undefined, cookieA)).body.process.status, 'completed');
+    assert.equal((await request('POST', `/calidad/${unknownId}/validar`, {}, cookieA)).body.quality.validRecords, 1);
+    assert.equal((await request('POST', `/datos-procesados/importaciones/${unknownId}`, undefined, cookieA)).body.persistedRecords, 1);
+    const skipped = await request('GET', '/metricas?metric=sum&field=quantity', undefined, cookieA);
+    assert.equal(skipped.body.metric.value, '7');
+    assert.equal(skipped.body.metric.includedRecords, 3);
+    assert.equal(skipped.body.metric.skippedRecords, 1);
   });
   await t.test('E03 source with imports cannot be deleted and inactive source rejects new imports', async () => {
     assert.equal((await request('DELETE', `/fuentes/${importSource.id}`, undefined, cookieA)).status, 409);

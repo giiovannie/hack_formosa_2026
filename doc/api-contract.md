@@ -1241,6 +1241,14 @@ y detectar inconsistencias.
 
 # Restricciones
 
+## BE E11 — Métricas empresariales configurables
+
+`GET /api/v1/metricas?metric=&field=&from=&to=&dataType=&sourceId=` requiere sesión. `metric` admite `count`, `sum`, `average`, `min`, `max`. Para agregados numéricos se requiere `field`, nombre exacto de una columna normalizada; `count` no lo admite. La entidad se selecciona mediante `dataType` y los filtros/períodos siguen E09: fecha de persistencia UTC, fuente propia y empresa autenticada.
+
+Respuesta `200`: `{ message, metric: { name, field, filters, value, includedRecords, skippedRecords } }`. `count` devuelve `value` numérico; los agregados numéricos devuelven una cadena decimal exacta (`average` redondea a seis decimales) o `null` si no hay valores numéricos. Los registros con campo ausente o no numérico se omiten y se contabilizan en `skippedRecords`; no se convierten silenciosamente en cero. El cálculo usa exclusivamente `ProcessedRecord`. Métricas inválidas o `field` incompatible responden `400`; fuente ajena o inexistente, `404`. No se atribuye significado de ventas, stock o dinero a columnas libres.
+
+---
+
 ## BE E10 — Visualización de información
 
 `GET /api/v1/visualizaciones?type=&metric=record_count&groupBy=&from=&to=&dataType=&sourceId=` requiere sesión y agrupa únicamente registros procesados de la empresa autenticada. Reutiliza los filtros E09 (`from`/`to` inclusivos en UTC sobre fecha de persistencia, `dataType`, `sourceId` propio). La única métrica genérica definida es `record_count`; no se infieren importes ni unidades de columnas libres.

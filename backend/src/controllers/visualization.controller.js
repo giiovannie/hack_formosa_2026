@@ -1,6 +1,7 @@
 import { col, fn } from 'sequelize';
 import { matchedData } from 'express-validator';
 import { buildProcessedRecordFilters } from '../helpers/processedRecordFilters.helper.js';
+import { calculateMetric } from '../helpers/calculateMetric.helper.js';
 
 const invalid = () => Object.assign(new Error('Combinación de visualización y agrupación inválida'), { status: 400 });
 
@@ -12,7 +13,7 @@ export const createVisualizationControllers = (models) => ({
       if (metric !== 'record_count') throw invalid();
       if (type === 'card') {
         if (requestedGroup) throw invalid();
-        const value = await models.ProcessedRecordModel.count({ where });
+        const { value } = await calculateMetric(models.ProcessedRecordModel, where, 'count');
         return res.status(200).json({ message: 'Visualización obtenida', visualization: { type, metric, groupBy: null,
           filters: appliedFilters, data: { value } } });
       }
