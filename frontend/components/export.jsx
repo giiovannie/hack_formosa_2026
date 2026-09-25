@@ -1,0 +1,50 @@
+'use client'
+
+import { useState } from 'react'
+import { BarChart3, CheckCircle2, ChevronDown, CircleHelp, Clock3, Download, FileJson, FileSpreadsheet, FileText, LineChart, PieChart, Play, Sparkles, Table2, UserRound, XCircle } from 'lucide-react'
+
+const options = [
+  { id: 'datos', label: 'Datos', description: 'Registros y movimientos completos', icon: Table2, color: '#55b9ee' },
+  { id: 'metricas', label: 'Métricas', description: 'Indicadores clave del negocio', icon: BarChart3, color: '#62d89b' },
+  { id: 'graficos', label: 'Gráficos', description: 'Visualizaciones listas para compartir', icon: LineChart, color: '#a998ff' },
+  { id: 'historicos', label: 'Históricos', description: 'Evolución por período y categoría', icon: Clock3, color: '#f2c45c' },
+  { id: 'analisis', label: 'Análisis', description: 'Hallazgos y contexto de variaciones', icon: Sparkles, color: '#ff8d94' },
+]
+
+const formats = [
+  { id: 'xlsx', label: 'Excel', detail: '.xlsx', icon: FileSpreadsheet },
+  { id: 'pdf', label: 'PDF', detail: '.pdf', icon: FileText },
+  { id: 'csv', label: 'CSV', detail: '.csv', icon: FileJson },
+]
+
+function Logo() {
+  return <div className="flex items-center gap-2.5"><div className="grid size-8 place-items-center rounded-lg bg-[#f4511e] shadow-[0_0_18px_rgba(244,81,30,.28)]"><span className="text-lg text-white">✣</span></div><span className="text-[15px] font-bold tracking-tight text-[#f3f5f7]">Stockflow</span></div>
+}
+
+function SectionTitle({ eyebrow, title, children }) {
+  return <div className="mb-4 flex flex-wrap items-start justify-between gap-3"><div><p className="mb-1 text-[10px] font-semibold uppercase tracking-[.16em] text-[#ff792c]">{eyebrow}</p><h2 className="text-base font-semibold text-[#edf2f7]">{title}</h2></div>{children}</div>
+}
+
+export default function Page() {
+  const [selected, setSelected] = useState(['datos', 'metricas'])
+  const [format, setFormat] = useState('xlsx')
+  const [period, setPeriod] = useState('Últimos 12 meses')
+  const [status, setStatus] = useState('idle')
+
+  const toggleOption = (id) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
+  const exportData = () => {
+    if (!selected.length) return
+    setStatus('running')
+    window.setTimeout(() => setStatus('success'), 1300)
+  }
+
+  return <main className="min-h-screen bg-[#090d15] text-[#f3f5f7]"><header className="border-b border-[#202b39] bg-[#0a0f18]/95"><div className="mx-auto flex h-[66px] max-w-[1180px] items-center justify-between px-5 lg:px-8"><Logo /><nav className="hidden items-center gap-8 text-sm text-[#8792a4] md:flex"><a className="hover:text-white" href="#alertas">Alertas</a><a className="hover:text-white" href="#respaldo">Respaldo</a><a className="text-[#e8edf3]" href="#exportar">Exportar</a></nav><div className="flex items-center gap-4"><span className="hidden text-sm text-[#8f9bac] sm:block">Hola, Martina</span><button aria-label="Abrir ayuda" className="grid size-8 place-items-center rounded-full border border-[#293546] text-[#8490a3]"><CircleHelp size={16} /></button><div className="grid size-8 place-items-center rounded-full bg-[#293546] text-xs font-semibold text-[#dbe2ea]">ML</div></div></div></header><div id="exportar" className="mx-auto max-w-[1180px] px-5 py-8 lg:px-8 lg:py-10"><div className="mb-8 flex flex-wrap items-end justify-between gap-5"><div><p className="mb-2 text-xs font-medium uppercase tracking-[.18em] text-[#ff792c]">Centro de reportes</p><h1 className="text-2xl font-bold tracking-tight sm:text-[30px]">Exportar información</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-[#8e9aac]">Selecciona el contenido que necesitas, define el formato y genera un archivo listo para analizar o compartir.</p></div><div className="flex items-center gap-2 rounded-lg border border-[#293749] bg-[#0f1621] px-3 py-2"><UserRound size={15} className="text-[#8b98aa]" /><span className="text-xs text-[#a9b4c1]">Rol: Administradora</span><ChevronDown size={14} className="text-[#718096]" /></div></div>
+
+<div className="grid gap-6 lg:grid-cols-[1.35fr_.65fr]"><div className="space-y-6"><section className="rounded-xl border border-[#293749] bg-[#0f1621] p-5 sm:p-6"><SectionTitle eyebrow="01 · Contenido" title="¿Qué quieres exportar?"><span className="text-xs text-[#78879a]">{selected.length} de {options.length} seleccionados</span></SectionTitle><div className="grid gap-3 sm:grid-cols-2">{options.map(({ id, label, description, icon: Icon, color }) => { const active = selected.includes(id); return <button key={id} onClick={() => toggleOption(id)} aria-pressed={active} className={`flex items-start gap-3 rounded-lg border p-3.5 text-left transition ${active ? 'border-[#f4511e] bg-[#2b1a18]' : 'border-[#293749] bg-[#111a26] hover:border-[#405066]'}`}><span className="grid size-9 shrink-0 place-items-center rounded-lg" style={{ color, backgroundColor: `${color}18` }}><Icon size={17} /></span><span className="min-w-0 flex-1"><span className="flex items-center justify-between gap-2"><span className="text-sm font-medium text-[#e8edf3]">{label}</span><span className={`grid size-4 place-items-center rounded border ${active ? 'border-[#f4511e] bg-[#f4511e]' : 'border-[#526073]'}`}>{active && <CheckCircle2 size={12} className="text-white" />}</span></span><span className="mt-1 block text-[11px] leading-4 text-[#7f8da0]">{description}</span></span></button> })}</div></section>
+
+<section className="rounded-xl border border-[#293749] bg-[#0f1621] p-5 sm:p-6"><SectionTitle eyebrow="02 · Alcance" title="Período de información"><div className="relative"><select value={period} onChange={(event) => setPeriod(event.target.value)} className="appearance-none rounded-md border border-[#334154] bg-[#111d2a] py-2 pl-3 pr-8 text-xs text-[#cbd5df] outline-none"><option>Últimos 12 meses</option><option>Últimos 90 días</option><option>Este año</option><option>Personalizado</option></select><ChevronDown size={14} className="pointer-events-none absolute right-2.5 top-2.5 text-[#758397]" /></div></SectionTitle><div className="flex items-center gap-3 rounded-lg border border-[#293749] bg-[#111a26] p-3"><Clock3 size={16} className="text-[#f2c45c]" /><div><p className="text-xs font-medium text-[#dce4ec]">Rango seleccionado</p><p className="mt-0.5 text-[11px] text-[#7f8da0]">Julio 2024 — Junio 2025 · {period}</p></div></div></section></div>
+
+<aside className="space-y-6"><section className="rounded-xl border border-[#293749] bg-[#0f1621] p-5 sm:p-6"><SectionTitle eyebrow="03 · Formato" title="Formato de salida" /><div className="space-y-2">{formats.map(({ id, label, detail, icon: Icon }) => <button key={id} onClick={() => setFormat(id)} className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition ${format === id ? 'border-[#55b9ee] bg-[#102b3a]' : 'border-[#293749] bg-[#111a26] hover:border-[#405066]'}`}><span className="grid size-8 place-items-center rounded-md bg-[#1d2c3b] text-[#55b9ee]"><Icon size={16} /></span><span className="flex-1"><span className="block text-xs font-medium text-[#e5ebf1]">{label}</span><span className="text-[10px] text-[#758397]">Archivo {detail}</span></span><span className={`size-3.5 rounded-full border ${format === id ? 'border-4 border-[#55b9ee]' : 'border-[#5d6a7b]'}`} /></button>)}</div></section><section className="rounded-xl border border-[#293749] bg-[#0f1621] p-5 sm:p-6"><p className="text-[10px] font-semibold uppercase tracking-[.16em] text-[#ff792c]">Resumen</p><div className="mt-4 space-y-3 text-xs"><div className="flex justify-between gap-3"><span className="text-[#7f8da0]">Contenido</span><span className="text-right text-[#dbe4ec]">{selected.length} categorías</span></div><div className="flex justify-between gap-3"><span className="text-[#7f8da0]">Período</span><span className="text-right text-[#dbe4ec]">{period}</span></div><div className="flex justify-between gap-3"><span className="text-[#7f8da0]">Formato</span><span className="uppercase text-[#dbe4ec]">{format}</span></div></div><button onClick={exportData} disabled={!selected.length || status === 'running'} className="mt-5 flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-[#f4511e] text-sm font-semibold text-white shadow-[0_8px_24px_rgba(244,81,30,.16)] transition hover:bg-[#ff6129] disabled:cursor-not-allowed disabled:bg-[#3a4451] disabled:text-[#8b98a8] disabled:shadow-none">{status === 'running' ? <><Play className="animate-pulse" size={16} />Generando exportación...</> : <><Download size={16} />Generar exportación</>}</button>{!selected.length && <p className="mt-3 text-[11px] text-[#ff8d94]">Selecciona al menos una categoría para continuar.</p>}</section></aside></div>
+
+{status === 'running' && <section className="mt-6 rounded-xl border border-[#284b62] bg-[#102b3a]/70 p-5"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-semibold text-[#dceefa]">Preparando tu exportación</p><p className="mt-1 text-xs text-[#83a9bf]">Organizando datos, métricas y visualizaciones seleccionadas.</p></div><span className="text-sm font-semibold text-[#55b9ee]">68%</span></div><div className="mt-4 h-2 overflow-hidden rounded-full bg-[#1b4053]"><div className="h-full w-[68%] animate-pulse rounded-full bg-[#55b9ee]" /></div></section>}{status === 'success' && <section role="status" className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#24563c] bg-[#102b20]/70 p-5"><div className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 shrink-0 text-[#62d89b]" size={19} /><div><p className="text-sm font-semibold text-[#d9f7e7]">Exportación lista</p><p className="mt-1 text-xs text-[#9ec8b1]">El archivo Stockflow_{format}_{period.replaceAll(' ', '-').toLowerCase()}.{format} fue generado correctamente.</p></div></div><button className="flex items-center gap-2 rounded-lg border border-[#2e7651] px-3 py-2 text-xs font-semibold text-[#72e5a8] hover:bg-[#153c2b]"><Download size={14} />Descargar archivo</button></section>}</div></main>
+}
