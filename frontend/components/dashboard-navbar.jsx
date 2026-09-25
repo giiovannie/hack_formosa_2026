@@ -69,9 +69,23 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-blue/10 text-sm font-bold text-brand-blue dark:bg-brand/10 dark:text-brand">ML</span>
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-[#1E293B] dark:text-[#F8FAFC]">María López</p>
-                    <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">Cuenta de Stockflow</p>
+                    <p className="text-xs text-[#64748B] dark:text-[#94A3B8]">Información del usuario</p>
                   </div>
                 </div>
+                <dl className="space-y-3 px-3 py-2">
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-[#64748B] dark:text-[#94A3B8]">Edad</dt>
+                    <dd className="mt-0.5 text-sm text-[#1E293B] dark:text-[#F8FAFC]">26 años</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-[#64748B] dark:text-[#94A3B8]">Correo electrónico</dt>
+                    <dd className="mt-0.5 break-all text-sm text-[#1E293B] dark:text-[#F8FAFC]">marialopez@gmail.com</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[11px] font-medium uppercase tracking-wide text-[#64748B] dark:text-[#94A3B8]">PyME a cargo</dt>
+                    <dd className="mt-0.5 text-sm text-[#1E293B] dark:text-[#F8FAFC]">Almacén La Esquina</dd>
+                  </div>
+                </dl>
                 <div className="my-1 border-t border-[#E2E8F0] dark:border-[#263346]" />
                 <button
                   type="button"
