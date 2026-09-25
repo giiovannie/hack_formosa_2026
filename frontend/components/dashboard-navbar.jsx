@@ -6,7 +6,6 @@ const navItems = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "data-quality", label: "Calidad de datos", icon: FileCheck2 },
   { id: "traceability", label: "Trazabilidad", icon: GitBranch },
-  { id: "alerts", label: "Alertas", icon: Bell },
   { id: "contextualization", label: "Contexto", icon: Activity },
   { id: "external-sources", label: "Fuentes", icon: Database },
   { id: "productivity", label: "Productividad", icon: LayoutDashboard },
@@ -56,7 +55,7 @@ export default function DashboardNavbar({ activeView, onNavigate }) {
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" aria-label="Ver alertas" className="relative rounded-lg p-2 text-[#64748B] hover:bg-white hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:bg-[#151D2A] dark:hover:text-[#F8FAFC]"><Bell className="h-5 w-5" /><span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" /></button>
+          <button type="button" aria-label="Ver alertas" aria-current={activeView === "alerts" ? "page" : undefined} onClick={() => onNavigate("alerts")} className={`relative rounded-lg p-2 transition ${activeView === "alerts" ? "bg-brand-blue/10 text-brand-blue dark:bg-brand/10 dark:text-brand" : "text-[#64748B] hover:bg-white hover:text-[#1E293B] dark:text-[#94A3B8] dark:hover:bg-[#151D2A] dark:hover:text-[#F8FAFC]"}`}><Bell className="h-5 w-5" /><span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-orange-500" /></button>
           <div className="relative" ref={profileMenuRef}>
             <button
               type="button"
